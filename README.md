@@ -2,7 +2,7 @@
 
 ### 1. Run the Main Pipeline
 ```bash
-python llm_free_runner.py
+python enhanced_llm_free_runner.py
 ```
 This will show an interactive menu for data collection workflows.
 Run the 4th option "Everything Complete Workflow" to extract all macroeconomic and financial data.
