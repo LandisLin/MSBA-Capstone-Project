@@ -3,6 +3,11 @@ Economic Data Dashboard - Simple Entry Point
 """
 
 import streamlit as st
+import sys
+from pathlib import Path
+
+# Add current directory to path
+sys.path.append(str(Path(__file__).parent))
 
 def main():
     st.set_page_config(
@@ -12,21 +17,12 @@ def main():
     )
     
     try:
-        # Try to import the main dashboard
         from streamlit_dashboard import main as dashboard_main
         dashboard_main()
-    except ImportError as e:
-        st.error(f"Import Error: {e}")
-        st.info("Some modules are missing. Please check requirements.txt")
-        
-        # Show a simple fallback
-        st.title("📊 Economic Data Dashboard")
-        st.info("Dashboard is being set up. Please check back in a few minutes.")
-        
     except Exception as e:
-        st.error(f"Application Error: {e}")
+        st.error(f"Error loading dashboard: {e}")
         st.title("📊 Economic Data Dashboard")
-        st.info("There was an issue loading the dashboard. Please try refreshing the page.")
+        st.info("Please check the app logs for more details.")
 
 if __name__ == "__main__":
     main()
