@@ -4,18 +4,10 @@
 ```bash
 python enhanced_llm_free_runner.py
 ```
-This will show an interactive menu for data collection workflows.
-Run the 4th option "Everything Complete Workflow" to extract all macroeconomic and financial data.
+This will show an interactive menu for data pipeline.
+Run the 2nd option "Everything Complete Pipeline" for the complete pipeline (Validation → Extraction → Cleaning → Dashboard).
 
-### 2. Data Cleaning & Processing (Manual Step)
-```bash
-python singapore_data_cleaner.py
-python fred_data_cleaner.py
-python singapore_standardizer.py
-```
-Since I haven't integrate this part into the previous pipeline runner, after data extraction, you need to clean and process the data. This can be done using the provided cleaning scripts.
-
-### 3. Launch the Dashboard
+### 2. Launch the Dashboard (with existing data sheets)
 ```bash
 streamlit run streamlit_dashboard.py
 ```
@@ -28,7 +20,7 @@ This opens the interactive web dashboard for data visualization.
 ### **🔧 Core Pipeline (Main Components)**
 | File | Purpose | Entry Point |
 |------|---------|-------------|
-| `llm_free_runner.py` | **Main entry point** - Interactive pipeline runner | ✅ **START HERE** |
+| `enhanced_llm_free_runner.py` | **Main entry point** - Interactive pipeline runner | ✅ **START HERE** |
 | `llm_free_pipeline.py` | Core validation logic (HTTP/API based) | Used by runner |
 | `api_first_validator.py` | Smart API validation with yfinance support | Used by pipeline |
 | `rule_based_extraction_tools.py` | **Data extraction engine** + Excel export | Used by runner |
