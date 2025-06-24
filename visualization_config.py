@@ -169,7 +169,10 @@ class DataProcessor:
     
     @staticmethod
     def process_singapore_data(df, sheet_name):
-        """Process Singapore data format - standardized version"""
+        """
+        Process Singapore data format - standardized version
+        Updated: Property Price expects "value" column (not "index")
+        """
         try:
             # Handle Property_Price special case
             if sheet_name == 'Property_Price':
@@ -183,16 +186,8 @@ class DataProcessor:
                 else:
                     df_filtered = df
                 
-                # Handle different column combinations
-                if 'date' in df_filtered.columns and 'index' in df_filtered.columns:
-                    result = pd.DataFrame({
-                        'date': pd.to_datetime(df_filtered['date']),
-                        'value': pd.to_numeric(df_filtered['index'], errors='coerce'),
-                        'series': 'Property Price Index',
-                        'country': 'Singapore',
-                        'indicator': sheet_name
-                    })
-                elif 'date' in df_filtered.columns and 'value' in df_filtered.columns:
+                # Updated: Expect standardized "value" column only
+                if 'date' in df_filtered.columns and 'value' in df_filtered.columns:
                     result = pd.DataFrame({
                         'date': pd.to_datetime(df_filtered['date']),
                         'value': pd.to_numeric(df_filtered['value'], errors='coerce'),
@@ -201,6 +196,7 @@ class DataProcessor:
                         'indicator': sheet_name
                     })
                 else:
+                    print(f"   ❌ Property Price: Missing 'date' or 'value' columns. Available: {list(df_filtered.columns)}")
                     return None
             else:
                 # Standard processing for other indicators
