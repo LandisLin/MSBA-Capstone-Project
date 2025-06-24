@@ -46,21 +46,11 @@ def get_singapore_source_urls():
         return url_mapping
         
     except ImportError:
-        print(f"   ⚠️ Could not import macro_sources.py, using fallback URLs")
-        return get_fallback_urls()
+        print(f"   ⚠️ Could not import macro_sources.py")
+        return {}
     except Exception as e:
         print(f"   ⚠️ Error loading source URLs: {e}")
-        return get_fallback_urls()
-
-def get_fallback_urls():
-    """Fallback URLs in case macro_sources.py is not available"""
-    return {
-        'GDP': 'https://data.gov.sg/datasets/d_87a41037716428a042305df9b948ece2/view',
-        'CPI': 'https://data.gov.sg/datasets/d_09f3ea075cdf660f722df3f743b1d796/view',
-        'Interest_Rate': 'https://data.gov.sg/datasets/d_5fe5a4bb4a1ecc4d8a56a095832e2b24/view',
-        'Population': 'https://data.gov.sg/datasets/d_3d227e5d9fdec73f3bcadce671c333a6/view',
-        'Property_Price': 'https://data.gov.sg/datasets/d_97f8a2e995022d311c6c68cfda6d034c/view'
-    }
+        return {}
 
 def find_latest_singapore_file(data_dir: str = "./extracted_data") -> str:
     """
@@ -443,7 +433,7 @@ def recreate_contents_sheet_exactly(writer, sheet_name, all_cleaned_data):
             link_cell.font = link_font
             
             # CORRECT Source URL - get from mapping
-            correct_url = source_urls.get(data_type, "https://data.gov.sg/")
+            correct_url = source_urls.get(data_type, "N/A")
             contents_sheet.cell(row=row, column=8).value = correct_url
             
             print(f"      ✅ {data_type}: {correct_url}")
