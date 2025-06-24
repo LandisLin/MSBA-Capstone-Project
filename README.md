@@ -13,6 +13,8 @@ streamlit run streamlit_dashboard.py
 ```
 This opens the interactive web dashboard for data visualization.
 
+(Note: You need to have your own FRED API key and put it in .env file with this format: FRED_API_KEY=...)
+
 ---
 
 ## 📂 Code Structure & Categories
