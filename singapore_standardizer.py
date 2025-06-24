@@ -1,6 +1,7 @@
 """
 Singapore Data Standardization Script
 Converts Singapore horizontal data to vertical format with specific requirements
+Updated: Property Price "index" → "value" column for consistency
 """
 
 import pandas as pd
@@ -44,21 +45,11 @@ def get_singapore_source_urls():
         return url_mapping
         
     except ImportError:
-        print(f"   ⚠️ Could not import macro_sources.py, using fallback URLs")
-        return get_fallback_urls()
+        print(f"   ⚠️ Could not import macro_sources.py")
+        return {}
     except Exception as e:
         print(f"   ⚠️ Error loading source URLs: {e}")
-        return get_fallback_urls()
-
-def get_fallback_urls():
-    """Fallback URLs in case macro_sources.py is not available"""
-    return {
-        'GDP': 'https://data.gov.sg/datasets/d_87a41037716428a042305df9b948ece2/view',
-        'CPI': 'https://data.gov.sg/datasets/d_09f3ea075cdf660f722df3f743b1d796/view',
-        'Interest_Rate': 'https://data.gov.sg/datasets/d_5fe5a4bb4a1ecc4d8a56a095832e2b24/view',
-        'Population': 'https://data.gov.sg/datasets/d_3d227e5d9fdec73f3bcadce671c333a6/view',
-        'Property_Price': 'https://data.gov.sg/datasets/d_97f8a2e995022d311c6c68cfda6d034c/view'
-    }
+        return {}
 
 def find_latest_singapore_file(data_dir="./extracted_data"):
     """Find the latest cleaned Singapore macro data file"""
@@ -95,7 +86,7 @@ def standardize_singapore_data(input_file_path=None):
     3. CPI: Keep "All Items" → "value", same date conversion
     4. Interest Rate: Keep "SORA 3-Month" → "value", date: 2025-04 → 2025-04-01
     5. Population: Keep all populations, "Total Population" → "value", date: 2025 → 2025-01-01
-    6. Property Price: Already vertical, just rename "quarter" → "date"
+    6. Property Price: Already vertical, rename "quarter" → "date" and "index" → "value"
     """
     
     # Auto-find latest file if not specified
@@ -118,6 +109,7 @@ def standardize_singapore_data(input_file_path=None):
     print("=" * 50)
     print(f"Input:  {input_path.name}")
     print(f"Output: {output_file_path.name}")
+    print("Updated: Property Price 'index' → 'value' column")
     
     # Load source URLs for Contents sheet
     source_urls = get_singapore_source_urls()
@@ -155,7 +147,7 @@ def standardize_singapore_data(input_file_path=None):
             standardized_data[sheet_name] = standardized_df
             
         elif sheet_name == 'Property_Price':
-            # Property Price standardization (simple rename)
+            # Property Price standardization with index → value conversion
             standardized_df = standardize_property_price_sheet(df)
             standardized_data[sheet_name] = standardized_df
             
@@ -550,21 +542,37 @@ def standardize_population_sheet(df):
 def standardize_property_price_sheet(df):
     """
     Standardize Property Price sheet:
-    - Already vertical, just rename "quarter" → "date"
+    - Rename "quarter" → "date" (already vertical)
+    - Rename "index" → "value" for consistency with other indicators
     """
     
-    print(f"   🔄 Property Price: Renaming 'quarter' → 'date' (already vertical)")
+    print(f"   🔄 Property Price: Renaming 'quarter'→'date' AND 'index'→'value'")
+    print(f"   📊 Original columns: {list(df.columns)}")
     
     result_df = df.copy()
     
-    # Rename quarter column to date
+    # Step 1: Rename quarter column to date
     if 'quarter' in result_df.columns:
         result_df.rename(columns={'quarter': 'date'}, inplace=True)
         print(f"   ✅ Renamed 'quarter' → 'date'")
     else:
-        print(f"   ⚠️ 'quarter' column not found, no changes made")
+        print(f"   ⚠️ 'quarter' column not found")
     
+    # Step 2: Rename index column to value for consistency with other indicators
+    if 'index' in result_df.columns:
+        result_df.rename(columns={'index': 'value'}, inplace=True)
+        print(f"   ✅ Renamed 'index' → 'value' for consistency")
+    else:
+        print(f"   ⚠️ 'index' column not found")
+    
+    # Show final structure
+    print(f"   📊 Final columns: {list(result_df.columns)}")
     print(f"   ✅ Property Price: {len(result_df)} records, {len(result_df.columns)} columns")
+    
+    # Show sample data to verify
+    if 'value' in result_df.columns and len(result_df) > 0:
+        sample_values = result_df['value'].head(3).tolist()
+        print(f"   📈 Sample property price values: {sample_values}")
     
     return result_df
 
@@ -617,34 +625,6 @@ def convert_yearly_date(date_str):
     
     return None
 
-def main():
-    """Main execution function"""
-    
-    print("🇸🇬 SINGAPORE DATA STANDARDIZATION")
-    print("=" * 60)
-    
-    try:
-        # Standardize Singapore data
-        output_file = standardize_singapore_data()
-        
-        if output_file:
-            print(f"\n🎯 STANDARDIZATION SUMMARY:")
-            print(f"✅ GDP: Horizontal → Vertical (GDP Chained 2015 Dollars only)")
-            print(f"✅ CPI: Horizontal → Vertical (All Items only)")
-            print(f"✅ Interest Rate: Horizontal → Vertical (SORA 3-Month only)")
-            print(f"✅ Population: Horizontal → Vertical (Multiple population types)")
-            print(f"✅ Property Price: Quarter column renamed to Date")
-            print(f"✅ Contents: Preserved unchanged")
-            print(f"\n📁 Output: {output_file}")
-        else:
-            print(f"\n❌ Standardization failed")
-            
-    except FileNotFoundError as e:
-        print(f"❌ Error: {e}")
-        print(f"💡 Make sure you have Singapore files in ./extracted_data/")
-    except Exception as e:
-        print(f"❌ Unexpected error: {e}")
-
 def get_actual_date_range(df, data_type):
     """Extract actual date range from standardized data"""
     try:
@@ -686,7 +666,7 @@ def get_actual_date_range(df, data_type):
         return f"Data available ({len(df) if df is not None else 0} records)"
 
 def recreate_contents_sheet_exactly(writer, standardized_data, source_urls):
-    """Recreate Contents sheet with CORRECT source URLs from macro_sources.py"""
+    """Recreate Contents sheet with source URLs from macro_sources.py"""
     try:
         from openpyxl.styles import Font, PatternFill, Alignment
         from openpyxl.utils import get_column_letter
@@ -696,7 +676,7 @@ def recreate_contents_sheet_exactly(writer, standardized_data, source_urls):
         # Create new Contents sheet at the beginning
         contents_sheet = workbook.create_sheet('Contents', 0)  # Insert at beginning
         
-        print(f"   🔧 Recreating Contents sheet with CORRECT source URLs...")
+        print(f"   🔧 Recreating Contents sheet with source URLs...")
         
         # ROW 1-2: Title
         contents_sheet['A1'] = "Singapore Macroeconomic Data"
@@ -771,8 +751,8 @@ def recreate_contents_sheet_exactly(writer, standardized_data, source_urls):
             link_font = Font(color="0563C1", underline="single")
             link_cell.font = link_font
             
-            # CORRECT Source URL - get from mapping
-            correct_url = source_urls.get(data_type, "https://data.gov.sg/")
+            # Source URL - get from mapping or show N/A if not available
+            correct_url = source_urls.get(data_type, "N/A")
             contents_sheet.cell(row=row, column=8).value = correct_url
             
             print(f"      ✅ {data_type}: {correct_url}")
@@ -792,12 +772,41 @@ def recreate_contents_sheet_exactly(writer, standardized_data, source_urls):
         for col_letter, width in column_widths.items():
             contents_sheet.column_dimensions[col_letter].width = width
         
-        print(f"   ✅ Contents sheet recreated with CORRECT source URLs!")
+        print(f"   ✅ Contents sheet recreated with source URLs!")
         
     except Exception as e:
         print(f"   ❌ Error recreating Contents sheet: {e}")
         import traceback
         traceback.print_exc()
+
+def main():
+    """Main execution function"""
+    
+    print("🇸🇬 SINGAPORE DATA STANDARDIZATION")
+    print("=" * 60)
+    print("Updated: Property Price 'index' → 'value' column for consistency")
+    
+    try:
+        # Standardize Singapore data
+        output_file = standardize_singapore_data()
+        
+        if output_file:
+            print(f"\n🎯 STANDARDIZATION SUMMARY:")
+            print(f"✅ GDP: Horizontal → Vertical (GDP Chained 2015 Dollars only)")
+            print(f"✅ CPI: Horizontal → Vertical (All Items only)")
+            print(f"✅ Interest Rate: Horizontal → Vertical (SORA 3-Month only)")
+            print(f"✅ Population: Horizontal → Vertical (Multiple population types)")
+            print(f"✅ Property Price: Quarter→Date AND Index→Value (Updated)")
+            print(f"✅ Contents: Preserved unchanged")
+            print(f"\n📁 Output: {output_file}")
+        else:
+            print(f"\n❌ Standardization failed")
+            
+    except FileNotFoundError as e:
+        print(f"❌ Error: {e}")
+        print(f"💡 Make sure you have Singapore files in ./extracted_data/")
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
 
 if __name__ == "__main__":
     main()
