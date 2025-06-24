@@ -2,7 +2,7 @@
 
 ### 1. Run the Main Pipeline
 ```bash
-python enhanced_llm_free_runner.py
+python main_runner.py
 ```
 This will show an interactive menu for data pipeline.
 Run the 2nd option "Everything Complete Pipeline" for the complete pipeline (Validation → Extraction → Cleaning → Dashboard).
@@ -20,8 +20,8 @@ This opens the interactive web dashboard for data visualization.
 ### **🔧 Core Pipeline (Main Components)**
 | File | Purpose | Entry Point |
 |------|---------|-------------|
-| `enhanced_llm_free_runner.py` | **Main entry point** - Interactive pipeline runner | ✅ **START HERE** |
-| `llm_free_pipeline.py` | Core validation logic (HTTP/API based) | Used by runner |
+| `main_runner.py` | **Main entry point** - Interactive pipeline runner | ✅ **START HERE** |
+| `main_pipeline.py` | Core validation logic (HTTP/API based) | Used by runner |
 | `api_first_validator.py` | Smart API validation with yfinance support | Used by pipeline |
 | `rule_based_extraction_tools.py` | **Data extraction engine** + Excel export | Used by runner |
 
