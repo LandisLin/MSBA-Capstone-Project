@@ -697,39 +697,44 @@ def create_country_overview_chart(data, country_key):
     return fig
 
 def create_country_page(data_sources):
-    """Create country analysis page with fixed country selection"""
+    """Create country analysis page with FIXED single-click country selection"""
     st.header("🏠 Country Economic Analysis")
     
     if not data_sources['countries']:
         st.warning("No country data available.")
         return
     
-    # FIXED: Country selection logic
-    # Check if we have a preselected country from navigation
-    if (hasattr(st.session_state, 'selected_country') and 
-        st.session_state.selected_country and 
-        st.session_state.selected_country in data_sources['countries']):
-        
-        # Find the index of the preselected country
-        try:
-            default_index = data_sources['countries'].index(st.session_state.selected_country)
-        except ValueError:
-            default_index = 0
-    else:
-        default_index = 0
+    # FIXED: Simplified country selection logic
+    # Initialize selected_country if not exists
+    if 'selected_country' not in st.session_state:
+        st.session_state.selected_country = data_sources['countries'][0]
     
-    # Country selection dropdown with proper default
+    # Ensure selected country is valid
+    if st.session_state.selected_country not in data_sources['countries']:
+        st.session_state.selected_country = data_sources['countries'][0]
+    
+    # Get current index
+    try:
+        current_index = data_sources['countries'].index(st.session_state.selected_country)
+    except ValueError:
+        current_index = 0
+        st.session_state.selected_country = data_sources['countries'][0]
+    
+    # Country selection with automatic update
     selected_country = st.selectbox(
         "Select Country",
         options=data_sources['countries'],
-        index=default_index,
+        index=current_index,
         format_func=NameFormatter.format_country_name,
-        key="country_selector"
+        key="country_selector_fixed"  # Different key to avoid conflicts
     )
     
-    # Update session state when selection changes
-    st.session_state.selected_country = selected_country
+    # FIXED: Only update session state if country actually changed
+    if selected_country != st.session_state.selected_country:
+        st.session_state.selected_country = selected_country
+        st.rerun()  # Force immediate rerun when country changes
     
+    # Now process the selected country
     if selected_country:
         # Show extraction time
         country_file = data_sources['country_files'].get(selected_country)
@@ -758,6 +763,7 @@ def create_country_page(data_sources):
             # Data summary
             st.subheader("📊 Data Summary")
             summary_data = []
+            
             for indicator, df in country_data.items():
                 if not df.empty:
                     date_range = f"{df['date'].min().strftime('%Y-%m')} to {df['date'].max().strftime('%Y-%m')}"
