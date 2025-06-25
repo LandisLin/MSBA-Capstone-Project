@@ -289,27 +289,27 @@ US_SOURCES = [
         backup_sources=["https://www.census.gov/topics/population/population-totals.html"]
     ),
     
-    # 30-Year Mortgage Rate - FIXED
-    MacroDataSource(
-        name="US 30-Year Fixed Mortgage Rate",
-        url="https://fred.stlouisfed.org/series/MORTGAGE30US",
-        country="US",
-        data_type="Mortgage_Rate",
-        source_type="api",
-        authority="Freddie Mac",
-        description="30-Year Fixed Rate Mortgage Average in the United States",
-        api_url=None,  # Will be constructed dynamically
-        fred_series_id="MORTGAGE30US",  # FIXED: Add series ID
-        update_frequency="weekly",
-        data_format="json",
-        requires_api_key=True,
-        extraction_complexity="simple",
-        data_quality_rating=10,
-        api_rate_limits="120 requests per 60 seconds",
-        authentication_method="API Key",
-        data_coverage_start="1971",
-        backup_sources=["https://www.freddiemac.com/pmms"]
-    ),
+    # # 30-Year Mortgage Rate - FIXED
+    # MacroDataSource(
+    #     name="US 30-Year Fixed Mortgage Rate",
+    #     url="https://fred.stlouisfed.org/series/MORTGAGE30US",
+    #     country="US",
+    #     data_type="Mortgage_Rate",
+    #     source_type="api",
+    #     authority="Freddie Mac",
+    #     description="30-Year Fixed Rate Mortgage Average in the United States",
+    #     api_url=None,  # Will be constructed dynamically
+    #     fred_series_id="MORTGAGE30US",  # FIXED: Add series ID
+    #     update_frequency="weekly",
+    #     data_format="json",
+    #     requires_api_key=True,
+    #     extraction_complexity="simple",
+    #     data_quality_rating=10,
+    #     api_rate_limits="120 requests per 60 seconds",
+    #     authentication_method="API Key",
+    #     data_coverage_start="1971",
+    #     backup_sources=["https://www.freddiemac.com/pmms"]
+    # ),
     
     # US Property Price Index - FIXED
     MacroDataSource(
@@ -503,19 +503,25 @@ JAPAN_SOURCES = [
     
     # Bank of Japan Interest Rates
     MacroDataSource(
-        name="Japan Policy Rate",
-        url="https://www.boj.or.jp/en/statistics/boj/other/discount/index.htm",
+        name="Japan Call Money/Interbank Rate",
+        url="https://fred.stlouisfed.org/series/IRSTCI01JPM156N",
         country="Japan",
         data_type="Interest_Rate",
-        source_type="web_scraping",
-        authority="Bank of Japan",
-        description="Japan policy interest rate",
-        update_frequency="irregular",
-        data_format="html",
-        extraction_complexity="medium",
+        source_type="api",
+        authority="Organization for Economic Co-operation and Development via FRED",
+        description="Japan call money/interbank rate, immediate rates (< 24 hours)",
+        api_url=None,  # Will be constructed dynamically
+        fred_series_id="IRSTCI01JPM156N",
+        update_frequency="monthly",
+        data_format="json",
+        requires_api_key=True,
+        extraction_complexity="simple",
         real_time_data=True,
         data_quality_rating=9,
-        backup_sources=["https://fred.stlouisfed.org/series/INTDSRJPM193N"]
+        api_rate_limits="120 requests per 60 seconds",
+        authentication_method="API Key",
+        data_coverage_start="1985",
+        backup_sources=["https://www.stat-search.boj.or.jp/ssi/mtshtml/fm02_m_1_en.html"]
     ),
     
     # Japan Population - FIXED
