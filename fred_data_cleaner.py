@@ -11,6 +11,7 @@ import re
 from datetime import datetime
 import warnings
 import time
+from typing import Dict, List, Any, Optional
 
 # Suppress pandas performance warnings
 warnings.filterwarnings('ignore', category=pd.errors.PerformanceWarning)
@@ -163,6 +164,46 @@ def convert_population_units(value, unit, data_type):
     # No conversion needed
     return value, unit
 
+def copy_source_urls_from_original(input_file_path: str) -> Dict[str, str]:
+    """Copy source URLs from original file's Contents sheet"""
+    source_urls = {}
+    
+    try:
+        # Read the original Contents sheet - skiprows=2 to skip merged title rows
+        contents_df = pd.read_excel(input_file_path, sheet_name='Contents', skiprows=2)
+        
+        print(f"   📋 Reading URLs from original Contents sheet...")
+        print(f"   Available columns: {list(contents_df.columns)}")
+        
+        # Find the data type and URL columns flexibly
+        data_type_col = None
+        url_col = None
+        
+        for col in contents_df.columns:
+            col_str = str(col).lower().strip()
+            if 'data type' in col_str or 'data_type' in col_str:
+                data_type_col = col
+                print(f"   Found data type column: {col}")
+            elif 'source url' in col_str or 'url' in col_str:
+                url_col = col
+                print(f"   Found URL column: {col}")
+        
+        if data_type_col and url_col:
+            for idx, row in contents_df.iterrows():
+                data_type = row[data_type_col]
+                url = row[url_col]
+                
+                if pd.notna(data_type) and pd.notna(url) and str(url) not in ['N/A', 'nan', '']:
+                    source_urls[str(data_type)] = str(url)
+                    print(f"   📎 {data_type} -> {url}")
+        
+        print(f"   ✅ Copied {len(source_urls)} URLs from original file")
+        
+    except Exception as e:
+        print(f"   ⚠️ Could not read URLs from original file: {e}")
+    
+    return source_urls
+
 def clean_fred_data_2000_plus(input_file_path: str, country_name: str) -> str:
     """
     Clean FRED data: Filter to 2000+, remove unnecessary columns, convert population units only
@@ -176,6 +217,8 @@ def clean_fred_data_2000_plus(input_file_path: str, country_name: str) -> str:
     print("=" * 65)
     print(f"Input:  {input_path.name}")
     print(f"Output: {output_file_path.name}")
+    
+    original_source_urls = copy_source_urls_from_original(input_file_path)
     
     # Read all sheets
     excel_data = pd.read_excel(input_file_path, sheet_name=None)
@@ -222,7 +265,7 @@ def clean_fred_data_2000_plus(input_file_path: str, country_name: str) -> str:
         
         # STEP 3: Create perfect Contents sheet by reading the actual written data
         print(f"\n📋 STEP 3: Creating Contents sheet from actual written data...")
-        apply_exact_contents_formatting(output_file_path, country_name)
+        apply_exact_contents_formatting(output_file_path, country_name, original_source_urls)
         
         print(f"   ✅ File written successfully: {output_file_path.name}")
         
@@ -379,11 +422,8 @@ def apply_basic_formatting(writer, sheet_name: str, df: pd.DataFrame):
     except Exception as e:
         print(f"   ⚠️ Could not apply formatting to {sheet_name}: {e}")
 
-def apply_exact_contents_formatting(file_path: Path, country_name: str):
-    """
-    Apply exact Contents sheet formatting like singapore_data_cleaner.py
-    Recreate Contents sheet from scratch with proper formatting
-    """
+def apply_exact_contents_formatting(file_path: Path, country_name: str, original_urls: Dict[str, str] = None):
+    """Apply exact Contents sheet formatting - DYNAMIC headers and sheets"""
     try:
         from openpyxl import load_workbook
         from openpyxl.styles import Font, PatternFill, Alignment
@@ -391,8 +431,27 @@ def apply_exact_contents_formatting(file_path: Path, country_name: str):
         
         workbook = load_workbook(file_path)
         
-        # Get list of all data sheets (excluding Contents)
+        # Get list of all data sheets (excluding Contents) - DYNAMIC, not hardcoded
         data_sheets = [sheet for sheet in workbook.sheetnames if sheet != 'Contents']
+        
+        # Read headers from original file's Contents sheet - TRULY DYNAMIC
+        headers = []
+        original_file_path = str(file_path).replace('cleaned_', '')  # Try to find original file
+        
+        try:
+            # Try to read headers from the original file
+            if Path(original_file_path).exists():
+                print(f"   📋 Reading headers from original file: {Path(original_file_path).name}")
+                original_contents = pd.read_excel(original_file_path, sheet_name='Contents', skiprows=2, nrows=1)
+                headers = list(original_contents.columns)
+                print(f"   ✅ Found headers: {headers}")
+            else:
+                print(f"   ⚠️ Original file not found: {original_file_path}")
+                raise FileNotFoundError("Original file not found")
+        except Exception as e:
+            print(f"   ⚠️ Could not read headers from original file: {e}")
+            print(f"   📋 Using fallback standard headers")
+            headers = ['No.', 'Data Type', 'Status', 'Records', 'Date Range', 'Last Extraction Time', 'Sheet Link', 'Source URL']
         
         # Delete the old Contents sheet and create new one
         if 'Contents' in workbook.sheetnames:
@@ -400,10 +459,13 @@ def apply_exact_contents_formatting(file_path: Path, country_name: str):
         contents_sheet = workbook.create_sheet('Contents', 0)  # Insert at beginning
         
         print(f"   🔧 Recreating Contents sheet from scratch...")
+        print(f"   📊 Found {len(data_sheets)} data sheets: {data_sheets}")
         
-        # ROW 1-2: Title (merged)
+        # ROW 1-2: Title (merged) - dynamic based on number of columns
+        num_cols = len(headers)
+        title_range = f'A1:{get_column_letter(num_cols)}2'
         contents_sheet['A1'] = f"{country_name} Macroeconomic Data (Annual Population + Unit Converted)"
-        contents_sheet.merge_cells('A1:H2')
+        contents_sheet.merge_cells(title_range)
         
         # Style title exactly like original
         title_font = Font(size=18, bold=True, color="FFFFFF")
@@ -413,8 +475,7 @@ def apply_exact_contents_formatting(file_path: Path, country_name: str):
         contents_sheet['A1'].fill = title_fill
         contents_sheet['A1'].alignment = title_alignment
         
-        # ROW 3: Headers
-        headers = ['No.', 'Data Type', 'Status', 'Records', 'Date Range', 'Last Extraction Time', 'Sheet Link', 'Source URL']
+        # ROW 3: Headers - DYNAMIC based on actual headers
         for col, header in enumerate(headers, 1):
             cell = contents_sheet.cell(row=3, column=col)
             cell.value = header
@@ -427,14 +488,13 @@ def apply_exact_contents_formatting(file_path: Path, country_name: str):
             cell.fill = header_fill
             cell.alignment = header_alignment
         
-        # ROW 4+: Create data rows for each sheet
+        # ROW 4+: Create data rows for each ACTUAL sheet (dynamic)
         for i, sheet_name in enumerate(data_sheets, 1):
             row = 3 + i
             
             # Get data from the actual sheet to calculate metrics
             try:
                 sheet_data = workbook[sheet_name]
-                # Count data rows (excluding header)
                 record_count = sheet_data.max_row - 1 if sheet_data.max_row > 1 else 0
                 
                 # Try to get date range from the sheet data
@@ -451,7 +511,7 @@ def apply_exact_contents_formatting(file_path: Path, country_name: str):
                     if date_column:
                         first_date = None
                         last_date = None
-                        for row_num in range(2, min(sheet_data.max_row + 1, 12)):  # Check first 10 data rows
+                        for row_num in range(2, min(sheet_data.max_row + 1, 12)):
                             date_cell = sheet_data.cell(row=row_num, column=date_column)
                             if date_cell.value:
                                 if first_date is None:
@@ -472,95 +532,69 @@ def apply_exact_contents_formatting(file_path: Path, country_name: str):
                 record_count = 0
                 date_range = "N/A"
             
-            # No.
-            contents_sheet.cell(row=row, column=1).value = i
-            
-            # Data Type
-            contents_sheet.cell(row=row, column=2).value = sheet_name
-            
-            # Status
-            status = "✅ Success" if record_count > 0 else "❌ No Data"
-            contents_sheet.cell(row=row, column=3).value = status
-            
-            # Records
-            contents_sheet.cell(row=row, column=4).value = record_count
-            
-            # Date Range
-            contents_sheet.cell(row=row, column=5).value = date_range
-            
-            # Last Extraction Time
-            contents_sheet.cell(row=row, column=6).value = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-            
-            # Sheet Link (with proper hyperlink formula)
-            if record_count > 0:
-                sheet_name_clean = sheet_name.replace(' ', '_')
-                hyperlink_formula = f'=HYPERLINK("#{sheet_name_clean}!A1","Go to {sheet_name}")'
-                link_cell = contents_sheet.cell(row=row, column=7)
-                link_cell.value = hyperlink_formula
+            # Populate cells based on header positions - DYNAMIC
+            for col, header in enumerate(headers, 1):
+                cell = contents_sheet.cell(row=row, column=col)
                 
-                # Style hyperlink exactly like original
-                link_font = Font(color="0563C1", underline="single")
-                link_cell.font = link_font
-            else:
-                contents_sheet.cell(row=row, column=7).value = "No data available"
-            
-            # Source URL - get from known FRED URLs
-            source_urls = {
-                'GDP': 'https://fred.stlouisfed.org/series/GDPC1',
-                'CPI': 'https://fred.stlouisfed.org/series/CPIAUCSL',
-                'Interest_Rate': 'https://fred.stlouisfed.org/series/FEDFUNDS',
-                'Population': 'https://fred.stlouisfed.org/series/POPTHM',
-                'Mortgage_Rate': 'https://fred.stlouisfed.org/series/MORTGAGE30US',
-                'Property_Price': 'https://fred.stlouisfed.org/series/QUSR628BIS'
-            }
-            source_url = source_urls.get(sheet_name, 'https://fred.stlouisfed.org/')
-            contents_sheet.cell(row=row, column=8).value = source_url
+                if header == 'No.':
+                    cell.value = i
+                elif header == 'Data Type':
+                    cell.value = sheet_name
+                elif header == 'Status':
+                    cell.value = "✅ Success" if record_count > 0 else "❌ No Data"
+                elif header == 'Records':
+                    cell.value = record_count
+                elif header == 'Date Range':
+                    cell.value = date_range
+                elif header == 'Last Extraction Time':
+                    cell.value = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                elif header == 'Sheet Link':
+                    if record_count > 0:
+                        sheet_name_clean = sheet_name.replace(' ', '_')
+                        hyperlink_formula = f'=HYPERLINK("#{sheet_name_clean}!A1","Go to {sheet_name}")'
+                        cell.value = hyperlink_formula
+                        
+                        # Style hyperlink exactly like original
+                        link_font = Font(color="0563C1", underline="single")
+                        cell.font = link_font
+                    else:
+                        cell.value = "No data available"
+                elif header == 'Source URL':
+                    # Source URL - get from copied URLs using actual sheet name
+                    if original_urls:
+                        correct_url = original_urls.get(sheet_name, "N/A")
+                        print(f"      ✅ Using copied URL for {sheet_name}: {correct_url}")
+                    else:
+                        correct_url = "N/A"
+                        print(f"      ⚠️ No copied URL found for {sheet_name}")
+                    cell.value = correct_url
         
-        # Set exact column widths matching original
-        column_widths = {
-            'A': 8,   # No.
-            'B': 15,  # Data Type
-            'C': 12,  # Status  
-            'D': 10,  # Records
-            'E': 35,  # Date Range
-            'F': 20,  # Last Extraction Time
-            'G': 20,  # Sheet Link
-            'H': 50   # Source URL
+        # Set column widths - DYNAMIC based on header content
+        # Default widths for common headers
+        default_widths = {
+            'No.': 8,
+            'Data Type': 15,
+            'Status': 12,
+            'Records': 10,
+            'Date Range': 35,
+            'Last Extraction Time': 20,
+            'Sheet Link': 20,
+            'Source URL': 50
         }
         
-        for col_letter, width in column_widths.items():
+        for col, header in enumerate(headers, 1):
+            col_letter = get_column_letter(col)
+            width = default_widths.get(header, 15)  # Default to 15 if header not in mapping
             contents_sheet.column_dimensions[col_letter].width = width
         
         # Save workbook
         workbook.save(file_path)
-        print(f"   ✅ Contents sheet recreated with population conversion note!")
+        print(f"   ✅ Contents sheet recreated with {len(data_sheets)} sheets and {len(headers)} columns!")
         
     except Exception as e:
         print(f"   ❌ Error recreating Contents: {e}")
         import traceback
         traceback.print_exc()
-
-def test_population_conversion():
-    """Test the population unit conversion function"""
-    
-    print("🧪 TESTING POPULATION UNIT CONVERSION")
-    print("=" * 50)
-    
-    test_cases = [
-        (281083, "Thousands", "Population"),
-        (5.5, "Millions of Persons", "Population"),
-        (100, "Index (2020=100)", "GDP"),  # Should NOT convert
-        (3.5, "Percent per annum", "Interest_Rate"),  # Should NOT convert
-        (50000, "Thousands of persons", "Population"),
-        (2.8, "Million persons", "Population")
-    ]
-    
-    for value, unit, data_type in test_cases:
-        converted_value, new_unit = convert_population_units(value, unit, data_type)
-        if converted_value != value:
-            print(f"   ✅ {data_type}: {value:>8} {unit:<20} → {converted_value:>15,.0f} {new_unit}")
-        else:
-            print(f"   ⚪ {data_type}: {value:>8} {unit:<20} → {converted_value:>15} {new_unit} (no change)")
 
 def analyze_cleaning_results(cleaned_files: dict):
     """Analyze cleaning results for all countries with population conversion info"""
@@ -618,9 +652,6 @@ def main():
     print("💰 Preserving original GDP/economic units for proper currency handling")
     print("🇺🇸🇪🇺🇯🇵 Processing: US, Euro Area, Japan (FRED data only)")
     print("=" * 70)
-    
-    # Test population conversion function
-    test_population_conversion()
     
     try:
         # Find latest files
