@@ -1,4 +1,4 @@
-This Streamlit dashboard has been deployed on Streamlit cloud, the link is as followed:
+This Streamlit dashboard has been deployed on Streamlit cloud, the link is as followed: /n
 https://capstone-project-nusmsba2025-landis.streamlit.app/
 
 ## 🎯 Quick Start
