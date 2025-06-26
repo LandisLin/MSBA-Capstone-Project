@@ -321,7 +321,7 @@ class MarketIndicesVisualizer:
                     'Country': data['country'].iloc[0] if 'country' in data.columns else 'Unknown',
                     'Last Closing Date': data['date'].iloc[-1].strftime('%Y-%m-%d'),
                     'Last Closing Price': f"{data['close'].iloc[-1]:,.2f}",
-                    'Records': len(data),
+                    'Records': str(len(data)),
                     'Source URL': source_url
                 })
         
