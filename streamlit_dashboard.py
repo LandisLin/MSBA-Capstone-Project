@@ -1,7 +1,6 @@
 """
-Economic Data Dashboard - Streamlit (Fixed Navigation Version)
+Economic Data Dashboard - Streamlit
 Interactive web dashboard for economic and market data visualization
-Fixed: Country navigation and page state management
 """
 
 import streamlit as st
@@ -420,6 +419,59 @@ def setup_css():
     </style>
     """, unsafe_allow_html=True)
 
+def detect_update_frequency(df, date_column='date'):
+    """
+    Detect update frequency based on time intervals between consecutive data points
+    
+    Args:
+        df: DataFrame with date column
+        date_column: Name of the date column (default: 'date')
+    
+    Returns:
+        str: Detected frequency ('Daily', 'Weekly', 'Monthly', 'Quarterly', 'Annual', 'Irregular', 'Insufficient Data')
+    """
+    
+    if df is None or len(df) < 2:
+        return "Insufficient Data"
+    
+    if date_column not in df.columns:
+        return "No Date Column"
+    
+    try:
+        # Convert to datetime and sort
+        df_copy = df.copy()
+        df_copy[date_column] = pd.to_datetime(df_copy[date_column])
+        df_sorted = df_copy.sort_values(date_column)
+        
+        # Calculate differences between consecutive dates
+        date_diffs = df_sorted[date_column].diff().dropna()
+        
+        if len(date_diffs) == 0:
+            return "Insufficient Data"
+        
+        # Get median difference (more robust than mean for irregular data)
+        median_diff = date_diffs.median()
+        
+        # Convert to days for easier comparison
+        median_days = median_diff.total_seconds() / (24 * 3600)
+        
+        # Classify based on median interval
+        if median_days <= 1.5:
+            return "Daily"
+        elif median_days <= 8:
+            return "Weekly"
+        elif median_days <= 35:  # ~1 month with some tolerance
+            return "Monthly"
+        elif median_days <= 100:  # ~3 months with tolerance
+            return "Quarterly"
+        elif median_days <= 400:  # ~1 year with tolerance
+            return "Annual"
+        else:
+            return "Irregular"
+            
+    except Exception as e:
+        return "Unknown"
+
 # Add this function to create the enhanced sidebar
 def create_enhanced_sidebar_navigation(data_sources):
     """Create enhanced sidebar with better spacing and centering"""
@@ -768,9 +820,11 @@ def create_country_page(data_sources):
                 if not df.empty:
                     date_range = f"{df['date'].min().strftime('%Y-%m')} to {df['date'].max().strftime('%Y-%m')}"
                     source_url = source_urls.get(indicator, "N/A")
+                    update_frequency = detect_update_frequency(df)  # NEW: Detect frequency
                     summary_data.append({
                         'Indicator': indicator,
-                        'Records': len(df),
+                        'Records': str(len(df)),
+                        'Update Frequency': update_frequency,
                         'Date Range': date_range,
                         'Source URL': source_url
                     })
