@@ -30,7 +30,10 @@ def find_latest_fred_files(data_dir: str = "./extracted_data"):
     patterns = {
         'US': 'macro_data_us_*.xlsx',
         'Euro Area': 'macro_data_euro area_*.xlsx', 
-        'Japan': 'macro_data_japan_*.xlsx'
+        'Japan': 'macro_data_japan_*.xlsx',
+        'UK': 'macro_data_uk_*.xlsx',              # NEW
+        'India': 'macro_data_india_*.xlsx',        # NEW
+        'Indonesia': 'macro_data_indonesia_*.xlsx' # NEW
     }
     
     latest_files = {}
