@@ -46,11 +46,31 @@ COUNTRIES = {
         'display': 'Euro Area',
         'code': 'EU'
     },
+    'uk': {
+        'pattern': 'cleaned_macro_data_uk_*.xlsx',
+        'display': 'United Kingdom',
+        'code': 'GB'
+    },
+    'india': {
+        'pattern': 'cleaned_macro_data_india_*.xlsx',
+        'display': 'India',
+        'code': 'IN'
+    },
     'japan': {
         'pattern': 'cleaned_macro_data_japan_*.xlsx',
         'display': 'Japan',
         'code': 'JP'
-    }
+    },
+    'indonesia': {
+        'pattern': 'cleaned_macro_data_indonesia_*.xlsx',
+        'display': 'Indonesia',
+        'code': 'ID'
+    },
+    'malaysia': {                                                    
+        'pattern': 'cleaned_macro_data_malaysia_*.xlsx',
+        'display': 'Malaysia',
+        'code': 'MY'
+    },
 }
 
 # Market indices configuration
@@ -63,6 +83,10 @@ NAME_CORRECTIONS = {
     'us': 'US', 
     'euro_area': 'Euro Area',
     'japan': 'Japan',
+    'uk': 'United Kingdom',      # NEW
+    'india': 'India',            # NEW
+    'indonesia': 'Indonesia',    # NEW
+    'malaysia': 'Malaysia',
     
     # Market indices
     'sandp_500_index': 'S&P 500 Index',
@@ -83,7 +107,11 @@ CHART_COLORS = {
         'singapore': '#1f77b4',
         'us': '#ff7f0e', 
         'euro_area': '#2ca02c',
-        'japan': '#d62728'
+        'japan': '#d62728',
+        'uk': '#9467bd',        # NEW
+        'india': '#8c564b',     # NEW
+        'indonesia': '#e377c2',  # NEW
+        'malaysia': '#17becf',   # NEW
     },
     'indicators': {
         'GDP': 'blue',
@@ -243,6 +271,34 @@ class DataProcessor:
             print(f"   ❌ Error processing FRED {sheet_name}: {e}")
             return None
     
+    @staticmethod
+    def process_malaysia_data(df, sheet_name):                     
+        """Process Malaysia data format - similar to FRED processing"""
+        try:
+            print(f"🔍 DEBUG: Processing Malaysia {sheet_name}")
+            print(f"🔍 DEBUG: Columns available: {list(df.columns)}")
+            print(f"🔍 DEBUG: Data shape: {df.shape}")
+            
+            if 'date' not in df.columns or 'value' not in df.columns:
+                print(f"❌ DEBUG: Missing required columns!")
+                return None
+            
+            result = pd.DataFrame({
+                'date': pd.to_datetime(df['date']),
+                'value': pd.to_numeric(df['value'], errors='coerce'),
+                'series': df.get('source_name', sheet_name).iloc[0] if len(df) > 0 else sheet_name,
+                'country': 'Malaysia',
+                'indicator': sheet_name
+            })
+            
+            result_clean = result.dropna(subset=['date', 'value']).sort_values('date')
+            print(f"✅ DEBUG: Processed {len(result_clean)} records")
+            return result_clean
+            
+        except Exception as e:
+            print(f"❌ DEBUG: Error processing Malaysia {sheet_name}: {e}")
+            return None
+
     @staticmethod
     def process_market_data(df, index_name):
         """Process market indices data - standardized version"""
@@ -558,6 +614,8 @@ def load_country_data(country_key, data_dir=DEFAULT_DATA_DIR):
         # Process based on country
         if country_key == 'singapore':
             processed_df = DataProcessor.process_singapore_data(df, sheet_name)
+        elif country_key == 'malaysia':                             
+            processed_df = DataProcessor.process_malaysia_data(df, sheet_name)
         else:
             processed_df = DataProcessor.process_fred_data(df, sheet_name, country_key)
         
