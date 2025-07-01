@@ -428,7 +428,7 @@ def detect_update_frequency(df, date_column='date'):
         date_column: Name of the date column (default: 'date')
     
     Returns:
-        str: Detected frequency ('Daily', 'Weekly', 'Monthly', 'Quarterly', 'Annual', 'Irregular', 'Insufficient Data')
+        str: Detected frequency ('Daily', 'Weekly', 'Monthly', 'Bi-monthly', 'Quarterly', 'Annual', 'Irregular', 'Insufficient Data')
     """
     
     if df is None or len(df) < 2:
@@ -462,6 +462,8 @@ def detect_update_frequency(df, date_column='date'):
             return "Weekly"
         elif median_days <= 35:  # ~1 month with some tolerance
             return "Monthly"
+        elif median_days <= 70:  # ~2 months with tolerance (NEW)
+            return "Bi-monthly"
         elif median_days <= 100:  # ~3 months with tolerance
             return "Quarterly"
         elif median_days <= 400:  # ~1 year with tolerance
