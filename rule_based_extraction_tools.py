@@ -1,6 +1,5 @@
 """
 Clean Rule-Based Data Extraction Tools
-Fixed version with proper structure and all requested improvements
 """
 
 import pandas as pd
@@ -187,8 +186,12 @@ class SimpleRuleBasedExtractor(BaseTool):
             # Extract based on URL
             if "data.gov.sg" in url:
                 df = self._extract_singapore_api(macro_source)
+            elif "data.gov.my" in url:                                    # ADD MALAYSIA CONDITION
+                df = self._extract_malaysia_api(macro_source)
             elif "fred.stlouisfed.org" in url:
                 df = self._extract_fred_api(macro_source, fred_api_key)
+            elif "financialmarkets.bnm.gov.my" in url:                    # ADD BNM CONDITION
+                df = self._extract_malaysia_bnm(macro_source)
             else:
                 df = self._create_test_data(macro_source)
             
@@ -483,6 +486,63 @@ class SimpleRuleBasedExtractor(BaseTool):
             traceback.print_exc()
             return self._create_test_data(source)
     
+    def _extract_malaysia_api(self, source) -> Optional[pd.DataFrame]:
+        """Extract from Malaysia Government API"""
+        try:
+            from malaysia_data_extractor import MalaysiaDataExtractor
+            
+            # Use the Malaysia extractor for specific source
+            extractor = MalaysiaDataExtractor()
+            
+            # Get source info
+            source_info = {
+                'name': source.name,
+                'url': source.url,
+                'api_url': source.api_url,
+                'source_type': source.source_type,
+                'authority': source.authority,
+                'description': source.description
+            }
+            
+            # Extract based on data type
+            if source.data_type == 'GDP':
+                df = extractor._extract_malaysia_gov_api(source_info, 'GDP')
+            elif source.data_type == 'CPI':
+                df = extractor._extract_malaysia_gov_api(source_info, 'CPI')
+            elif source.data_type == 'Population':
+                df = extractor._extract_malaysia_gov_api(source_info, 'Population')
+            else:
+                df = None
+            
+            return df
+            
+        except Exception as e:
+            print(f"   Malaysia API error: {e}")
+            return self._create_test_data(source)
+    
+    def _extract_malaysia_bnm(self, source) -> Optional[pd.DataFrame]:
+        """Extract from Bank Negara Malaysia website"""
+        try:
+            from malaysia_data_extractor import MalaysiaDataExtractor
+            
+            extractor = MalaysiaDataExtractor()
+            
+            source_info = {
+                'name': source.name,
+                'url': source.url,
+                'api_url': source.url,  # Use URL as api_url for web scraping
+                'source_type': 'web_scraping',
+                'authority': source.authority,
+                'description': source.description
+            }
+            
+            df = extractor._extract_web_scraping(source_info, 'Interest_Rate')
+            return df
+            
+        except Exception as e:
+            print(f"   Malaysia BNM error: {e}")
+            return self._create_test_data(source)
+
     def _create_test_data(self, source) -> pd.DataFrame:
         """Create simple test data"""
         dates = pd.date_range('2020-01-01', '2024-12-31', freq='QE')
@@ -603,9 +663,14 @@ class SimpleRuleBasedExtractor(BaseTool):
     def _find_macro_source(self, name: str):
         """Find macro source object"""
         try:
-            from macro_sources import SINGAPORE_SOURCES, US_SOURCES, EU_SOURCES, JAPAN_SOURCES
+            from macro_sources import (
+            SINGAPORE_SOURCES, US_SOURCES, EU_SOURCES, JAPAN_SOURCES,
+            UK_SOURCES, INDIA_SOURCES, INDONESIA_SOURCES, MALAYSIA_SOURCES
+        )
             
-            all_sources = SINGAPORE_SOURCES + US_SOURCES + EU_SOURCES + JAPAN_SOURCES
+            all_sources = (SINGAPORE_SOURCES + US_SOURCES + EU_SOURCES + 
+                           JAPAN_SOURCES + UK_SOURCES + INDIA_SOURCES + 
+                           INDONESIA_SOURCES + MALAYSIA_SOURCES)
             
             for source in all_sources:
                 if source.name == name:
@@ -619,10 +684,14 @@ class SimpleRuleBasedExtractor(BaseTool):
         """Get source URL by matching source name - FIXED for FRED sources"""
         try:
             # Import all sources and find matching URL
-            from macro_sources import SINGAPORE_SOURCES, US_SOURCES, EU_SOURCES, JAPAN_SOURCES, MARKET_INDICES_SOURCES
-            
-            all_sources = SINGAPORE_SOURCES + US_SOURCES + EU_SOURCES + JAPAN_SOURCES + MARKET_INDICES_SOURCES
-            
+            from macro_sources import (
+            SINGAPORE_SOURCES, US_SOURCES, EU_SOURCES, JAPAN_SOURCES,
+            UK_SOURCES, INDIA_SOURCES, INDONESIA_SOURCES,  # NEW IMPORTS
+            MARKET_INDICES_SOURCES
+            )
+            all_sources = (SINGAPORE_SOURCES + US_SOURCES + EU_SOURCES + 
+                           JAPAN_SOURCES + UK_SOURCES + INDIA_SOURCES + 
+                           INDONESIA_SOURCES + MARKET_INDICES_SOURCES)
             # First try exact match
             for source in all_sources:
                 if source.name == source_name:
