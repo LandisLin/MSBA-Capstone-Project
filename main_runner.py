@@ -40,7 +40,10 @@ except ImportError:
 def load_macro_sources_only() -> List[Dict[str, Any]]:
     """Load ONLY macroeconomic sources (exclude market indices)"""
     try:
-        from macro_sources import SINGAPORE_SOURCES, US_SOURCES, EU_SOURCES, JAPAN_SOURCES
+        from macro_sources import (
+            SINGAPORE_SOURCES, US_SOURCES, EU_SOURCES, JAPAN_SOURCES,
+            UK_SOURCES, INDIA_SOURCES, INDONESIA_SOURCES, MALAYSIA_SOURCES
+        )
         
         sources = []
         
@@ -87,7 +90,50 @@ def load_macro_sources_only() -> List[Dict[str, Any]]:
                 'api_url': getattr(source, 'get_fred_api_url', lambda: source.api_url)(),
                 'country': 'Japan'
             })
+
+        # NEW: UK macro sources
+        for source in UK_SOURCES:
+            sources.append({
+                'name': source.name,
+                'url': source.url,
+                'source_type': source.source_type,
+                'data_type': source.data_type,
+                'api_url': getattr(source, 'get_fred_api_url', lambda: source.api_url)(),
+                'country': 'UK'
+            })
         
+        # NEW: India macro sources
+        for source in INDIA_SOURCES:
+            sources.append({
+                'name': source.name,
+                'url': source.url,
+                'source_type': source.source_type,
+                'data_type': source.data_type,
+                'api_url': getattr(source, 'get_fred_api_url', lambda: source.api_url)(),
+                'country': 'India'
+            })
+        
+        # NEW: Indonesia macro sources
+        for source in INDONESIA_SOURCES:
+            sources.append({
+                'name': source.name,
+                'url': source.url,
+                'source_type': source.source_type,
+                'data_type': source.data_type,
+                'api_url': getattr(source, 'get_fred_api_url', lambda: source.api_url)(),
+                'country': 'Indonesia'
+            })
+        
+        for source in MALAYSIA_SOURCES:
+            sources.append({
+                'name': source.name,
+                'url': source.url,
+                'source_type': source.source_type,
+                'data_type': source.data_type,
+                'api_url': source.api_url,
+                'country': 'Malaysia'
+            })
+
         print(f"✅ Loaded {len(sources)} macro sources")
         return sources
         
@@ -135,7 +181,11 @@ def find_latest_files_by_pattern(data_dir: str = "./extracted_data"):
         'singapore': 'macro_data_singapore_*.xlsx',
         'us': 'macro_data_us_*.xlsx', 
         'euro_area': 'macro_data_euro area_*.xlsx',
+        'uk': 'macro_data_uk_*.xlsx',
+        'india': 'macro_data_india_*.xlsx', 
         'japan': 'macro_data_japan_*.xlsx',
+        'indonesia': 'macro_data_indonesia_*.xlsx',
+        'malaysia': 'macro_data_malaysia_*.xlsx',
         'market': 'market_indices_data_*.xlsx'
     }
     
@@ -198,8 +248,8 @@ def clean_and_standardize_data(extracted_files: Dict[str, str]) -> Dict[str, str
         except Exception as e:
             print(f"❌ Singapore processing error: {e}")
     
-    # Step 2: Clean FRED data (US, EU, Japan)
-    fred_countries = ['us', 'euro_area', 'japan']
+    # Step 2: Clean FRED data (US, EU, Japan, UK, India, Indonesia)
+    fred_countries = ['us', 'euro_area', 'japan', 'uk', 'india', 'indonesia']
     
     for country in fred_countries:
         if country in extracted_files:
@@ -216,7 +266,11 @@ def clean_and_standardize_data(extracted_files: Dict[str, str]) -> Dict[str, str
                 country_name_map = {
                     'us': 'US',
                     'euro_area': 'Euro Area', 
-                    'japan': 'Japan'
+                    'japan': 'Japan',
+                    'uk': 'UK',           # NEW
+                    'india': 'India',     # NEW  
+                    'indonesia': 'Indonesia',  # NEW
+                    # 'malaysia': 'Malaysia',
                 }
                 country_display_name = country_name_map[country]
                 
@@ -231,7 +285,30 @@ def clean_and_standardize_data(extracted_files: Dict[str, str]) -> Dict[str, str
             except Exception as e:
                 print(f"❌ {country} processing error: {e}")
     
-    # Step 3: Market data (no cleaning needed)
+    # Step 3: Clean Malaysia data
+    if 'malaysia' in extracted_files:
+        print(f"\n🇲🇾 MALAYSIA DATA PROCESSING")
+        print("-" * 40)
+        
+        malaysia_file = extracted_files['malaysia']
+        print(f"📄 Input: {Path(malaysia_file).name}")
+        
+        try:
+            print("🔄 Running Malaysia data cleaner...")
+            from malaysia_data_extractor import clean_malaysia_data
+            
+            cleaned_file = clean_malaysia_data(malaysia_file)
+            
+            if cleaned_file:
+                print(f"✅ Cleaned: {Path(cleaned_file).name}")
+                cleaned_files['malaysia'] = cleaned_file
+            else:
+                print("❌ Malaysia cleaning failed")
+                
+        except Exception as e:
+            print(f"❌ Malaysia processing error: {e}")
+
+    # Step 4: Market data (no cleaning needed)
     if 'market' in extracted_files:
         print(f"\n📈 MARKET DATA")
         print("-" * 40)
@@ -495,7 +572,10 @@ def run_dashboard_only():
         "standardized_cleaned_macro_data_singapore_*.xlsx",
         "cleaned_macro_data_us_*.xlsx",
         "cleaned_macro_data_euro area_*.xlsx", 
+        "cleaned_macro_data_uk_*.xlsx",
+        "cleaned_macro_data_india_*.xlsx",
         "cleaned_macro_data_japan_*.xlsx",
+        "cleaned_macro_data_indonesia_*.xlsx",
         "market_indices_data_*.xlsx"
     ]
     
