@@ -453,6 +453,242 @@ EU_SOURCES = [
 ]
 
 # =============================================================================
+# UNITED KINGDOM MACROECONOMIC DATA SOURCES
+# =============================================================================
+
+UK_SOURCES = [
+    # GDP Data
+    MacroDataSource(
+        name="UK Real GDP",
+        url="https://fred.stlouisfed.org/series/NGDPRSAXDCGBQ",
+        country="UK",
+        data_type="GDP",
+        source_type="api",
+        authority="International Monetary Fund via FRED",
+        description="UK Real GDP, quarterly, seasonally adjusted",
+        api_url=None,  # Will be constructed dynamically
+        fred_series_id="NGDPRSAXDCGBQ",
+        api_documentation="https://fred.stlouisfed.org/docs/api/fred/",
+        update_frequency="quarterly",
+        data_format="json",
+        requires_api_key=True,
+        extraction_complexity="simple",
+        data_quality_rating=10,
+        api_rate_limits="120 requests per 60 seconds",
+        authentication_method="API Key",
+        data_coverage_start="1955",
+        backup_sources=["https://www.ons.gov.uk/economy/grossdomesticproductgdp"]
+    ),
+    
+    # CPI Data
+    MacroDataSource(
+        name="UK Consumer Price Index",
+        url="https://fred.stlouisfed.org/series/GBRCPIALLMINMEI",
+        country="UK",
+        data_type="CPI",
+        source_type="api",
+        authority="Organization for Economic Co-operation and Development via FRED",
+        description="UK Consumer Price Index for All Items, monthly",
+        api_url=None,  # Will be constructed dynamically
+        fred_series_id="GBRCPIALLMINMEI",
+        update_frequency="monthly",
+        data_format="json",
+        requires_api_key=True,
+        extraction_complexity="simple",
+        data_quality_rating=10,
+        api_rate_limits="120 requests per 60 seconds",
+        authentication_method="API Key",
+        data_coverage_start="1955",
+        backup_sources=["https://www.ons.gov.uk/economy/inflationandpriceindices"]
+    ),
+    
+    # Interest Rate
+    MacroDataSource(
+        name="UK Interest Rate",
+        url="https://fred.stlouisfed.org/series/IRSTCI01GBM156N",
+        country="UK",
+        data_type="Interest_Rate",
+        source_type="api",
+        authority="Organization for Economic Co-operation and Development via FRED",
+        description="UK immediate rates (< 24 hours), monthly",
+        api_url=None,  # Will be constructed dynamically
+        fred_series_id="IRSTCI01GBM156N",
+        update_frequency="monthly",
+        data_format="json",
+        requires_api_key=True,
+        extraction_complexity="simple",
+        real_time_data=True,
+        data_quality_rating=10,
+        api_rate_limits="120 requests per 60 seconds",
+        authentication_method="API Key",
+        data_coverage_start="1978",
+        backup_sources=["https://www.bankofengland.co.uk/monetary-policy/the-interest-rate-bank-rate"]
+    ),
+    
+    # Population
+    MacroDataSource(
+        name="UK Population",
+        url="https://fred.stlouisfed.org/series/POPTOTGBA647NWDB",
+        country="UK",
+        data_type="Population",
+        source_type="api",
+        authority="World Bank via FRED",
+        description="UK total population, annual",
+        api_url=None,  # Will be constructed dynamically
+        fred_series_id="POPTOTGBA647NWDB",
+        update_frequency="annually",
+        data_format="json",
+        requires_api_key=True,
+        extraction_complexity="simple",
+        data_quality_rating=10,
+        api_rate_limits="120 requests per 60 seconds",
+        authentication_method="API Key",
+        data_coverage_start="1960",
+        backup_sources=["https://www.ons.gov.uk/peoplepopulationandcommunity/populationandmigration"]
+    ),
+    
+    # Property Price Index
+    MacroDataSource(
+        name="UK Residential Property Price Index",
+        url="https://fred.stlouisfed.org/series/QGBR628BIS",
+        country="UK",
+        data_type="Property_Price",
+        source_type="api",
+        authority="Bank for International Settlements (BIS) via FRED",
+        description="UK Residential Property Price Index, quarterly",
+        api_url=None,  # Will be constructed dynamically
+        fred_series_id="QGBR628BIS",
+        update_frequency="quarterly",
+        data_format="json",
+        requires_api_key=True,
+        extraction_complexity="simple",
+        data_quality_rating=10,
+        api_rate_limits="120 requests per 60 seconds",
+        authentication_method="API Key",
+        data_coverage_start="1968",
+        backup_sources=["https://www.gov.uk/government/collections/uk-house-price-index-reports"]
+    ),
+]
+
+# =============================================================================
+# INDIA MACROECONOMIC DATA SOURCES
+# =============================================================================
+
+INDIA_SOURCES = [
+    # GDP Data
+    MacroDataSource(
+        name="India Real GDP",
+        url="https://fred.stlouisfed.org/series/NGDPRNSAXDCINQ",
+        country="India",
+        data_type="GDP",
+        source_type="api",
+        authority="International Monetary Fund via FRED",
+        description="India Real GDP, quarterly, seasonally adjusted",
+        api_url=None,  # Will be constructed dynamically
+        fred_series_id="NGDPRNSAXDCINQ",
+        api_documentation="https://fred.stlouisfed.org/docs/api/fred/",
+        update_frequency="quarterly",
+        data_format="json",
+        requires_api_key=True,
+        extraction_complexity="simple",
+        data_quality_rating=9,
+        api_rate_limits="120 requests per 60 seconds",
+        authentication_method="API Key",
+        data_coverage_start="2004",
+        backup_sources=[]
+    ),
+    
+    # CPI Data
+    MacroDataSource(
+        name="India Consumer Price Index",
+        url="https://fred.stlouisfed.org/series/INDCPIALLMINMEI",
+        country="India",
+        data_type="CPI",
+        source_type="api",
+        authority="Organization for Economic Co-operation and Development via FRED",
+        description="India Consumer Price Index for All Items, monthly",
+        api_url=None,  # Will be constructed dynamically
+        fred_series_id="INDCPIALLMINMEI",
+        update_frequency="monthly",
+        data_format="json",
+        requires_api_key=True,
+        extraction_complexity="simple",
+        data_quality_rating=9,
+        api_rate_limits="120 requests per 60 seconds",
+        authentication_method="API Key",
+        data_coverage_start="1957",
+        backup_sources=[]
+    ),
+    
+    # Interest Rate
+    MacroDataSource(
+        name="India Interest Rate",
+        url="https://fred.stlouisfed.org/series/IRSTCI01INM156N",
+        country="India",
+        data_type="Interest_Rate",
+        source_type="api",
+        authority="Organization for Economic Co-operation and Development via FRED",
+        description="India immediate rates (< 24 hours), monthly",
+        api_url=None,  # Will be constructed dynamically
+        fred_series_id="IRSTCI01INM156N",
+        update_frequency="monthly",
+        data_format="json",
+        requires_api_key=True,
+        extraction_complexity="simple",
+        real_time_data=True,
+        data_quality_rating=9,
+        api_rate_limits="120 requests per 60 seconds",
+        authentication_method="API Key",
+        data_coverage_start="1968",
+        backup_sources=["https://www.rbi.org.in/Scripts/PublicationsView.aspx?id=3552"]
+    ),
+    
+    # Population
+    MacroDataSource(
+        name="India Population",
+        url="https://fred.stlouisfed.org/series/POPTOTINA647NWDB",
+        country="India",
+        data_type="Population",
+        source_type="api",
+        authority="World Bank via FRED",
+        description="India total population, annual",
+        api_url=None,  # Will be constructed dynamically
+        fred_series_id="POPTOTINA647NWDB",
+        update_frequency="annually",
+        data_format="json",
+        requires_api_key=True,
+        extraction_complexity="simple",
+        data_quality_rating=9,
+        api_rate_limits="120 requests per 60 seconds",
+        authentication_method="API Key",
+        data_coverage_start="1960",
+        backup_sources=["https://www.censusindia.gov.in/"]
+    ),
+    
+    # Property Price Index
+    MacroDataSource(
+        name="India Residential Property Price Index",
+        url="https://fred.stlouisfed.org/series/QINR628BIS",
+        country="India",
+        data_type="Property_Price",
+        source_type="api",
+        authority="Bank for International Settlements (BIS) via FRED",
+        description="India Residential Property Price Index, quarterly",
+        api_url=None,  # Will be constructed dynamically
+        fred_series_id="QINR628BIS",
+        update_frequency="quarterly",
+        data_format="json",
+        requires_api_key=True,
+        extraction_complexity="simple",
+        data_quality_rating=9,
+        api_rate_limits="120 requests per 60 seconds",
+        authentication_method="API Key",
+        data_coverage_start="2009",
+        backup_sources=[]
+    ),
+]
+
+# =============================================================================
 # JAPAN MACROECONOMIC DATA SOURCES (FIXED)
 # =============================================================================
 
@@ -569,7 +805,248 @@ JAPAN_SOURCES = [
 ]
 
 # =============================================================================
-# MARKET INDICES SOURCES (Keep as-is, these work fine)
+# Neighboring Countries MACROECONOMIC DATA SOURCES
+# =============================================================================
+
+# =============================================================================
+# INDONESIA MACROECONOMIC DATA SOURCES
+# =============================================================================
+
+INDONESIA_SOURCES = [
+    # GDP Data
+    MacroDataSource(
+        name="Indonesia Real GDP",
+        url="https://fred.stlouisfed.org/series/NGDPRSAXDCIDQ",
+        country="Indonesia",
+        data_type="GDP",
+        source_type="api",
+        authority="International Monetary Fund via FRED",
+        description="Indonesia Real GDP, quarterly, seasonally adjusted",
+        api_url=None,  # Will be constructed dynamically
+        fred_series_id="NGDPRSAXDCIDQ",
+        api_documentation="https://fred.stlouisfed.org/docs/api/fred/",
+        update_frequency="quarterly",
+        data_format="json",
+        requires_api_key=True,
+        extraction_complexity="simple",
+        data_quality_rating=9,
+        api_rate_limits="120 requests per 60 seconds",
+        authentication_method="API Key",
+        data_coverage_start="2000",
+        backup_sources=["https://www.bps.go.id/en/statistics-table?subject=530"]
+    ),
+    
+    # CPI Data
+    MacroDataSource(
+        name="Indonesia Consumer Price Index",
+        url="https://fred.stlouisfed.org/series/IDNCPIALLMINMEI",
+        country="Indonesia",
+        data_type="CPI",
+        source_type="api",
+        authority="Organization for Economic Co-operation and Development via FRED",
+        description="Indonesia Consumer Price Index for All Items, monthly",
+        api_url=None,  # Will be constructed dynamically
+        fred_series_id="IDNCPIALLMINMEI",
+        update_frequency="monthly",
+        data_format="json",
+        requires_api_key=True,
+        extraction_complexity="simple",
+        data_quality_rating=9,
+        api_rate_limits="120 requests per 60 seconds",
+        authentication_method="API Key",
+        data_coverage_start="1968",
+        backup_sources=["https://www.bps.go.id/subject/3/inflasi.html"]
+    ),
+    
+    # Interest Rate
+    MacroDataSource(
+        name="Indonesia Interest Rate",
+        url="https://fred.stlouisfed.org/series/IRSTCI01IDM156N",
+        country="Indonesia",
+        data_type="Interest_Rate",
+        source_type="api",
+        authority="Organization for Economic Co-operation and Development via FRED",
+        description="Indonesia immediate rates (< 24 hours), monthly",
+        api_url=None,  # Will be constructed dynamically
+        fred_series_id="IRSTCI01IDM156N",
+        update_frequency="monthly",
+        data_format="json",
+        requires_api_key=True,
+        extraction_complexity="simple",
+        real_time_data=True,
+        data_quality_rating=9,
+        api_rate_limits="120 requests per 60 seconds",
+        authentication_method="API Key",
+        data_coverage_start="1990",
+        backup_sources=[]
+    ),
+    
+    # Population
+    MacroDataSource(
+        name="Indonesia Population",
+        url="https://fred.stlouisfed.org/series/POPTOTIDA647NWDB",
+        country="Indonesia",
+        data_type="Population",
+        source_type="api",
+        authority="World Bank via FRED",
+        description="Indonesia total population, annual",
+        api_url=None,  # Will be constructed dynamically
+        fred_series_id="POPTOTIDA647NWDB",
+        update_frequency="annually",
+        data_format="json",
+        requires_api_key=True,
+        extraction_complexity="simple",
+        data_quality_rating=9,
+        api_rate_limits="120 requests per 60 seconds",
+        authentication_method="API Key",
+        data_coverage_start="1960",
+        backup_sources=["https://www.bps.go.id/subject/12/kependudukan.html"]
+    ),
+    
+    # Property Price Index
+    MacroDataSource(
+        name="Indonesia Residential Property Price Index",
+        url="https://fred.stlouisfed.org/series/QIDR628BIS",
+        country="Indonesia",
+        data_type="Property_Price",
+        source_type="api",
+        authority="Bank for International Settlements (BIS) via FRED",
+        description="Indonesia Residential Property Price Index, quarterly",
+        api_url=None,  # Will be constructed dynamically
+        fred_series_id="QIDR628BIS",
+        update_frequency="quarterly",
+        data_format="json",
+        requires_api_key=True,
+        extraction_complexity="simple",
+        data_quality_rating=9,
+        api_rate_limits="120 requests per 60 seconds",
+        authentication_method="API Key",
+        data_coverage_start="2002",
+        backup_sources=[]
+    ),
+]
+
+# =============================================================================
+# MALAYSIA MACROECONOMIC DATA SOURCES
+# =============================================================================
+
+MALAYSIA_SOURCES = [
+    # GDP Data
+    MacroDataSource(
+        name="Malaysia Real GDP (Quarterly)",
+        url="https://data.gov.my/data-catalogue/gdp_qtr_real_sa",
+        country="Malaysia",
+        data_type="GDP",
+        source_type="api",
+        authority="Department of Statistics Malaysia",
+        description="Malaysia Real GDP, quarterly data, seasonally adjusted",
+        api_url="https://api.data.gov.my/data-catalogue?id=gdp_qtr_real_sa",
+        api_documentation="https://developer.data.gov.my/",
+        update_frequency="quarterly",
+        data_format="json",
+        requires_api_key=False,
+        extraction_complexity="simple",
+        data_quality_rating=10,
+        api_rate_limits="No specific limits documented",
+        authentication_method="No authentication required",
+        data_coverage_start="2015",
+        backup_sources=[]
+    ),
+    
+    # CPI Data
+    MacroDataSource(
+        name="Malaysia Consumer Price Index",
+        url="https://data.gov.my/data-catalogue/cpi_headline",
+        country="Malaysia",
+        data_type="CPI",
+        source_type="api",
+        authority="Department of Statistics Malaysia",
+        description="Malaysia CPI headline index, monthly data",
+        api_url="https://api.data.gov.my/data-catalogue?id=cpi_headline",
+        api_documentation="https://developer.data.gov.my/",
+        update_frequency="monthly",
+        data_format="json",
+        requires_api_key=False,
+        extraction_complexity="simple",
+        data_quality_rating=10,
+        api_rate_limits="No specific limits documented",
+        authentication_method="No authentication required",
+        data_coverage_start="2000",
+        backup_sources=[]
+    ),
+    
+    # Interest Rate Data - FIXED: Now properly marked as web_scraping
+    MacroDataSource(
+        name="Malaysia Overnight Policy Rate",
+        url="https://financialmarkets.bnm.gov.my/data-download-opr?date_range=all_data",
+        country="Malaysia",
+        data_type="Interest_Rate",
+        source_type="web_scraping",  # Using web scraping method
+        authority="Bank Negara Malaysia",
+        description="Malaysia overnight policy rate, irregular updates",
+        api_url=None,  # No API available
+        api_documentation=None,
+        update_frequency="irregular",
+        data_format="html",  # Web scraping returns HTML
+        requires_api_key=False,
+        extraction_complexity="medium",  # Web scraping is more complex
+        data_quality_rating=10,
+        api_rate_limits="No specific limits documented",
+        authentication_method="No authentication required",
+        data_coverage_start="2004",
+        backup_sources=[]
+    ),
+    
+    # Population Data
+    MacroDataSource(
+        name="Malaysia Population",
+        url="https://data.gov.my/data-catalogue/population_malaysia",
+        country="Malaysia",
+        data_type="Population",
+        source_type="api",
+        authority="Department of Statistics Malaysia",
+        description="Malaysia total population, annual data",
+        api_url="https://api.data.gov.my/data-catalogue?id=population_malaysia",
+        api_documentation="https://developer.data.gov.my/",
+        update_frequency="annually",
+        data_format="json",
+        requires_api_key=False,
+        extraction_complexity="simple",
+        data_quality_rating=10,
+        api_rate_limits="No specific limits documented",
+        authentication_method="No authentication required",
+        data_coverage_start="1970",
+        backup_sources=[]
+    ),
+    
+    # Property Price Index
+    MacroDataSource(
+        name="Malaysia Real Residential Property Price Index (BIS)",
+        url="https://fred.stlouisfed.org/series/QMYR628BIS",
+        country="Malaysia",
+        data_type="Property_Price",
+        source_type="api",
+        authority="Bank for International Settlements (BIS)",
+        description="Real residential property prices for Malaysia, deflated using CPI",
+        api_url=None,  # Will be constructed dynamically
+        fred_series_id="QMYR628BIS",  # FRED series ID for dynamic construction
+        api_documentation="https://fred.stlouisfed.org/docs/api/fred/",
+        update_frequency="quarterly",
+        data_format="json",
+        requires_api_key=True,
+        extraction_complexity="simple",
+        data_quality_rating=10,
+        api_rate_limits="120 requests per 60 seconds",
+        authentication_method="API Key",
+        data_coverage_start="1988",
+        backup_sources=["https://www.bis.org/statistics/pp_detailed.htm"]
+    ),
+]
+
+
+
+# =============================================================================
+# MARKET INDICES SOURCES
 # =============================================================================
 
 MARKET_INDICES_SOURCES = [
@@ -930,7 +1407,11 @@ ENHANCED_MACROECONOMIC_DATA_SOURCES = {
     "european_union": EU_SOURCES,
     # "china": CHINA_SOURCES,
     # "hong_kong": HONG_KONG_SOURCES,
+    "united_kingdom": UK_SOURCES,      
+    "india": INDIA_SOURCES,            
     "japan": JAPAN_SOURCES,
+    "indonesia": INDONESIA_SOURCES,
+    "malaysia": MALAYSIA_SOURCES,
     "market_indices": MARKET_INDICES_SOURCES
 }
 
@@ -949,7 +1430,12 @@ def get_sources_by_country(country: str) -> List[MacroDataSource]:
         'hong_kong': 'hong_kong',
         'hk': 'hong_kong',
         'japan': 'japan',
-        'jp': 'japan'
+        'jp': 'japan',
+        'uk': 'united_kingdom',           
+        'united_kingdom': 'united_kingdom',  
+        'india': 'india',                 
+        'indonesia': 'indonesia',
+        'malaysia': 'malaysia',          
     }
     
     key = country_map.get(country.lower(), country.lower())
