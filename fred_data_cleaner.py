@@ -28,6 +28,7 @@ def find_latest_fred_files(data_dir: str = "./extracted_data"):
     
     # Define file patterns for each country
     patterns = {
+        'China': 'macro_data_china_*.xlsx',          # NEW
         'US': 'macro_data_us_*.xlsx',
         'Euro Area': 'macro_data_euro area_*.xlsx', 
         'Japan': 'macro_data_japan_*.xlsx',
