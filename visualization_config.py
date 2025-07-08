@@ -36,6 +36,11 @@ COUNTRIES = {
         'display': 'Singapore',
         'code': 'SG'
     },
+    'china': { 
+        'pattern': 'cleaned_macro_data_china_*.xlsx',
+        'display': 'China',
+        'code': 'CN'
+    },
     'us': {
         'pattern': 'cleaned_macro_data_us_*.xlsx', 
         'display': 'United States',
@@ -71,6 +76,16 @@ COUNTRIES = {
         'display': 'Malaysia',
         'code': 'MY'
     },
+    'thailand': { 
+        'pattern': 'cleaned_macro_data_thailand_*.xlsx',
+        'display': 'Thailand',
+        'code': 'TH'
+    },
+    'vietnam': { 
+        'pattern': 'cleaned_macro_data_vietnam_*.xlsx',
+        'display': 'Vietnam',
+        'code': 'VN'
+    },
 }
 
 # Market indices configuration
@@ -80,14 +95,17 @@ MARKET_INDICES_PATTERN = "market_indices_data_*.xlsx"
 NAME_CORRECTIONS = {
     # Countries
     'singapore': 'Singapore',
+    'china': 'China',
     'us': 'US', 
     'euro_area': 'Euro Area',
     'japan': 'Japan',
     'uk': 'United Kingdom',      # NEW
     'india': 'India',            # NEW
     'indonesia': 'Indonesia',    # NEW
-    'malaysia': 'Malaysia',
-    
+    'malaysia': 'Malaysia',      # NEW
+    'thailand': 'Thailand',      # NEW
+    'vietnam': 'Vietnam',        # NEW
+
     # Market indices
     'sandp_500_index': 'S&P 500 Index',
     's&p_500_index': 'S&P 500 Index',
@@ -105,6 +123,7 @@ NAME_CORRECTIONS = {
 CHART_COLORS = {
     'countries': {
         'singapore': '#1f77b4',
+        'china': '#ff9999',
         'us': '#ff7f0e', 
         'euro_area': '#2ca02c',
         'japan': '#d62728',
@@ -112,6 +131,8 @@ CHART_COLORS = {
         'india': '#8c564b',     # NEW
         'indonesia': '#e377c2',  # NEW
         'malaysia': '#17becf',   # NEW
+        'thailand': '#bcbd22',   # NEW
+        'vietnam': '#7f7f7f'     # NEW
     },
     'indicators': {
         'GDP': 'blue',
@@ -122,7 +143,8 @@ CHART_COLORS = {
     },
     'qualitative': [
         '#1f77b4', '#ff7f0e', '#2ca02c', '#d62728', '#9467bd',
-        '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf'
+        '#8c564b', '#e377c2', '#7f7f7f', '#bcbd22', '#17becf',
+        '#ff9999', '#98df8a', '#f7b6d2', '#c5b0d5', '#c49c94',
     ]
 }
 
@@ -297,6 +319,68 @@ class DataProcessor:
             
         except Exception as e:
             print(f"❌ DEBUG: Error processing Malaysia {sheet_name}: {e}")
+            return None
+    @staticmethod
+    def process_thailand_data(df, sheet_name):
+        """
+        FIXED: Process Thailand data format with better debugging and flexible column detection
+        """
+        try:
+            print(f"🔍 DEBUG: Processing Thailand {sheet_name}")
+            print(f"🔍 DEBUG: Columns available: {list(df.columns)}")
+            print(f"🔍 DEBUG: Data shape: {df.shape}")
+            print(f"🔍 DEBUG: Sample data:")
+            print(df.head(2).to_string())
+            
+            # FIXED: More flexible column detection
+            date_col = None
+            value_col = None
+            
+            # Look for date column
+            for col in df.columns:
+                col_str = str(col).lower()
+                if any(keyword in col_str for keyword in ['date', 'time', 'period']):
+                    date_col = col
+                    print(f"🔍 DEBUG: Found date column: {col}")
+                    break
+            
+            # Look for value column  
+            for col in df.columns:
+                col_str = str(col).lower()
+                if any(keyword in col_str for keyword in ['value', 'rate', 'index', 'price']):
+                    # Check if it's numeric
+                    if pd.api.types.is_numeric_dtype(df[col]) or pd.to_numeric(df[col], errors='coerce').notna().any():
+                        value_col = col
+                        print(f"🔍 DEBUG: Found value column: {col}")
+                        break
+            
+            if date_col is None or value_col is None:
+                print(f"❌ DEBUG: Missing required columns! Date: {date_col}, Value: {value_col}")
+                return None
+            
+            # Create result dataframe
+            result = pd.DataFrame({
+                'date': pd.to_datetime(df[date_col], errors='coerce'),
+                'value': pd.to_numeric(df[value_col], errors='coerce'),
+                'series': df.get('source_name', sheet_name).iloc[0] if len(df) > 0 else sheet_name,
+                'country': 'Thailand',
+                'indicator': sheet_name
+            })
+            
+            # Clean data
+            result_clean = result.dropna(subset=['date', 'value']).sort_values('date')
+            
+            print(f"✅ DEBUG: Processed {len(result_clean)} records for Thailand {sheet_name}")
+            if len(result_clean) > 0:
+                print(f"📅 DEBUG: Date range: {result_clean['date'].min()} to {result_clean['date'].max()}")
+                print(f"💰 DEBUG: Value range: {result_clean['value'].min()} to {result_clean['value'].max()}")
+            
+            return result_clean
+            
+        except Exception as e:
+            print(f"❌ DEBUG: Error processing Thailand {sheet_name}: {e}")
+            import traceback
+            traceback.print_exc()
             return None
 
     @staticmethod
@@ -616,6 +700,8 @@ def load_country_data(country_key, data_dir=DEFAULT_DATA_DIR):
             processed_df = DataProcessor.process_singapore_data(df, sheet_name)
         elif country_key == 'malaysia':                             
             processed_df = DataProcessor.process_malaysia_data(df, sheet_name)
+        elif country_key == 'thailand': 
+            processed_df = DataProcessor.process_thailand_data(df, sheet_name)
         else:
             processed_df = DataProcessor.process_fred_data(df, sheet_name, country_key)
         
