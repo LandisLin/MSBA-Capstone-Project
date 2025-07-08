@@ -41,8 +41,8 @@ def load_macro_sources_only() -> List[Dict[str, Any]]:
     """Load ONLY macroeconomic sources (exclude market indices)"""
     try:
         from macro_sources import (
-            SINGAPORE_SOURCES, US_SOURCES, EU_SOURCES, JAPAN_SOURCES,
-            UK_SOURCES, INDIA_SOURCES, INDONESIA_SOURCES, MALAYSIA_SOURCES
+            SINGAPORE_SOURCES, CHINA_SOURCES, US_SOURCES, EU_SOURCES, JAPAN_SOURCES,
+            UK_SOURCES, INDIA_SOURCES, INDONESIA_SOURCES, MALAYSIA_SOURCES, THAILAND_SOURCES, VIETNAM_SOURCES
         )
         
         sources = []
@@ -56,6 +56,17 @@ def load_macro_sources_only() -> List[Dict[str, Any]]:
                 'data_type': source.data_type,
                 'api_url': source.api_url,
                 'country': 'Singapore'
+            })
+        
+        # China macro sources
+        for source in CHINA_SOURCES:
+            sources.append({
+                'name': source.name,
+                'url': source.url,
+                'source_type': source.source_type,
+                'data_type': source.data_type,
+                'api_url': getattr(source, 'get_fred_api_url', lambda: source.api_url)() if hasattr(source, 'get_fred_api_url') else source.api_url,
+                'country': 'China'
             })
 
         # US macro sources
@@ -91,7 +102,7 @@ def load_macro_sources_only() -> List[Dict[str, Any]]:
                 'country': 'Japan'
             })
 
-        # NEW: UK macro sources
+        # UK macro sources
         for source in UK_SOURCES:
             sources.append({
                 'name': source.name,
@@ -102,7 +113,7 @@ def load_macro_sources_only() -> List[Dict[str, Any]]:
                 'country': 'UK'
             })
         
-        # NEW: India macro sources
+        # India macro sources
         for source in INDIA_SOURCES:
             sources.append({
                 'name': source.name,
@@ -113,7 +124,7 @@ def load_macro_sources_only() -> List[Dict[str, Any]]:
                 'country': 'India'
             })
         
-        # NEW: Indonesia macro sources
+        # Indonesia macro sources
         for source in INDONESIA_SOURCES:
             sources.append({
                 'name': source.name,
@@ -124,6 +135,7 @@ def load_macro_sources_only() -> List[Dict[str, Any]]:
                 'country': 'Indonesia'
             })
         
+        # Malaysia macro sources
         for source in MALAYSIA_SOURCES:
             sources.append({
                 'name': source.name,
@@ -132,6 +144,28 @@ def load_macro_sources_only() -> List[Dict[str, Any]]:
                 'data_type': source.data_type,
                 'api_url': source.api_url,
                 'country': 'Malaysia'
+            })
+
+        # Thailand macro sources
+        for source in THAILAND_SOURCES:
+            sources.append({
+                'name': source.name,
+                'url': source.url,
+                'source_type': source.source_type,
+                'data_type': source.data_type,
+                'api_url': source.api_url,
+                'country': 'Thailand'
+            })
+
+        # Vietnam macro sources
+        for source in VIETNAM_SOURCES:
+            sources.append({
+                'name': source.name,
+                'url': source.url,
+                'source_type': source.source_type,
+                'data_type': source.data_type,
+                'api_url': source.api_url,
+                'country': 'Vietnam'
             })
 
         print(f"✅ Loaded {len(sources)} macro sources")
@@ -179,6 +213,7 @@ def find_latest_files_by_pattern(data_dir: str = "./extracted_data"):
     
     patterns = {
         'singapore': 'macro_data_singapore_*.xlsx',
+        'china': 'macro_data_china_*.xlsx',  # NEW
         'us': 'macro_data_us_*.xlsx', 
         'euro_area': 'macro_data_euro area_*.xlsx',
         'uk': 'macro_data_uk_*.xlsx',
@@ -186,6 +221,8 @@ def find_latest_files_by_pattern(data_dir: str = "./extracted_data"):
         'japan': 'macro_data_japan_*.xlsx',
         'indonesia': 'macro_data_indonesia_*.xlsx',
         'malaysia': 'macro_data_malaysia_*.xlsx',
+        'thailand': 'macro_data_thailand_*.xlsx',
+        'vietnam': 'macro_data_vietnam_*.xlsx',
         'market': 'market_indices_data_*.xlsx'
     }
     
@@ -199,6 +236,47 @@ def find_latest_files_by_pattern(data_dir: str = "./extracted_data"):
             print(f"🔍 {name}: Found {latest_file.name}")
     
     return latest_files
+
+def refresh_world_bank_gdp_data(data_dir="./extracted_data"):
+    """Refresh World Bank GDP data as part of the pipeline"""
+    try:
+        print(f"\n🏦 WORLD BANK GDP DATA REFRESH")
+        print("-" * 40)
+        
+        from worldbank_data import WorldGDPCalculator
+        from visualization_config import DataLoader
+        
+        # Get available countries from existing data
+        available_countries = DataLoader.get_available_countries(data_dir)
+        
+        if not available_countries:
+            print("⚠️ No countries found, skipping World Bank data refresh")
+            return True
+        
+        print(f"🌍 Refreshing World Bank data for {len(available_countries)} countries...")
+        
+        # Initialize calculator and fetch data
+        calculator = WorldGDPCalculator()
+        
+        # Save fresh World Bank data
+        filepath = calculator.save_world_bank_data_to_excel(
+            available_countries, 
+            start_year=2000,
+            output_dir=data_dir
+        )
+        
+        if filepath:
+            print(f"✅ World Bank GDP data refreshed successfully")
+            print(f"📁 Saved to: {Path(filepath).name}")
+            return True
+        else:
+            print("⚠️ World Bank data refresh failed, but continuing pipeline...")
+            return False
+            
+    except Exception as e:
+        print(f"⚠️ World Bank data refresh error: {e}")
+        print("   Continuing pipeline without World Bank data refresh...")
+        return False
 
 def clean_and_standardize_data(extracted_files: Dict[str, str]) -> Dict[str, str]:
     """
@@ -248,8 +326,8 @@ def clean_and_standardize_data(extracted_files: Dict[str, str]) -> Dict[str, str
         except Exception as e:
             print(f"❌ Singapore processing error: {e}")
     
-    # Step 2: Clean FRED data (US, EU, Japan, UK, India, Indonesia)
-    fred_countries = ['us', 'euro_area', 'japan', 'uk', 'india', 'indonesia']
+    # Step 2: Clean FRED data (China, US, EU, Japan, UK, India, Indonesia)
+    fred_countries = ['china', 'us', 'euro_area', 'japan', 'uk', 'india', 'indonesia']
     
     for country in fred_countries:
         if country in extracted_files:
@@ -264,6 +342,7 @@ def clean_and_standardize_data(extracted_files: Dict[str, str]) -> Dict[str, str
                 
                 # Map country names for FRED cleaner
                 country_name_map = {
+                    'china': 'China',
                     'us': 'US',
                     'euro_area': 'Euro Area', 
                     'japan': 'Japan',
@@ -308,12 +387,100 @@ def clean_and_standardize_data(extracted_files: Dict[str, str]) -> Dict[str, str
         except Exception as e:
             print(f"❌ Malaysia processing error: {e}")
 
-    # Step 4: Market data (no cleaning needed)
+    # Step 4: Clean Thailand data
+    if 'thailand' in extracted_files:
+        print(f"\n🇹🇭 THAILAND DATA PROCESSING")
+        print("-" * 40)
+        
+        thailand_file = extracted_files['thailand']
+        print(f"📄 Input: {Path(thailand_file).name}")
+        
+        try:
+            print("🔄 Running Thailand data cleaner (from thailand_data_extractor)...")
+            
+            # Import the existing cleaning function from thailand_data_extractor
+            from thailand_data_extractor import clean_thailand_data
+            
+            cleaned_file = clean_thailand_data(thailand_file)
+            
+            if cleaned_file:
+                print(f"✅ Cleaned: {Path(cleaned_file).name}")
+                cleaned_files['thailand'] = cleaned_file
+            else:
+                print("❌ Thailand cleaning failed")
+                
+        except Exception as e:
+            print(f"❌ Thailand processing error: {e}")
+
+    # Step 5: Clean Vietnam data
+    if 'vietnam' in extracted_files:
+        print(f"\n🇻🇳 VIETNAM DATA PROCESSING")
+        print("-" * 40)
+        
+        vietnam_file = extracted_files['vietnam']
+        print(f"📄 Input: {Path(vietnam_file).name}")
+        
+        try:
+            print("🔄 Running Vietnam data cleaner...")
+            from vietnam_data_extractor import clean_vietnam_data
+            
+            cleaned_file = clean_vietnam_data(vietnam_file)
+            
+            if cleaned_file:
+                print(f"✅ Cleaned: {Path(cleaned_file).name}")
+                cleaned_files['vietnam'] = cleaned_file
+            else:
+                print("❌ Vietnam cleaning failed")
+                
+        except Exception as e:
+            print(f"❌ Vietnam processing error: {e}")
+    
+    # Step 6: Market data (no cleaning needed)
     if 'market' in extracted_files:
         print(f"\n📈 MARKET DATA")
         print("-" * 40)
         print("ℹ️ Market data doesn't require cleaning")
         cleaned_files['market'] = extracted_files['market']
+    
+    # Step 7: Refresh World Bank GDP data (NEW)
+    if cleaned_files:
+        print(f"\n🏦 WORLD BANK GDP DATA REFRESH")
+        print("-" * 40)
+        
+        # Get data directory from any cleaned file
+        data_dir = Path(list(cleaned_files.values())[0]).parent
+        
+        try:
+            from worldbank_data import WorldGDPCalculator
+            from visualization_config import DataLoader
+            
+            # Get available countries from cleaned files
+            available_countries = list(cleaned_files.keys())
+            if 'market' in available_countries:
+                available_countries.remove('market')  # Remove market from countries list
+            
+            if available_countries:
+                print(f"🌍 Refreshing World Bank data for {len(available_countries)} countries...")
+                
+                # Initialize calculator and save fresh data
+                calculator = WorldGDPCalculator()
+                filepath = calculator.save_world_bank_data_to_excel(
+                    available_countries, 
+                    start_year=2000,
+                    output_dir=str(data_dir)
+                )
+                
+                if filepath:
+                    print(f"✅ World Bank GDP data refreshed successfully")
+                    print(f"📁 Saved to: {Path(filepath).name}")
+                else:
+                    print("⚠️ World Bank data refresh failed, but continuing...")
+            else:
+                print("⚠️ No countries found for World Bank refresh")
+                
+        except Exception as e:
+            print(f"⚠️ World Bank data refresh error: {e}")
+            print("   Continuing without World Bank refresh...")
     
     return cleaned_files
 
@@ -570,12 +737,16 @@ def run_dashboard_only():
     # Look for cleaned/standardized files
     cleaned_patterns = [
         "standardized_cleaned_macro_data_singapore_*.xlsx",
+        "cleaned_macro_data_china_*.xlsx",  # NEW
         "cleaned_macro_data_us_*.xlsx",
         "cleaned_macro_data_euro area_*.xlsx", 
         "cleaned_macro_data_uk_*.xlsx",
         "cleaned_macro_data_india_*.xlsx",
         "cleaned_macro_data_japan_*.xlsx",
         "cleaned_macro_data_indonesia_*.xlsx",
+        "cleaned_macro_data_malaysia_*.xlsx",
+        "cleaned_macro_data_thailand_*.xlsx",
+        "cleaned_macro_data_vietnam_*.xlsx",
         "market_indices_data_*.xlsx"
     ]
     
