@@ -47,6 +47,10 @@ class MacroDataSource:
     
     # NEW: FRED series ID for dynamic URL construction
     fred_series_id: Optional[str] = None
+
+    # NEW: World Bank API identifiers
+    wb_series_id: Optional[str] = None
+    wb_country_code: Optional[str] = None
     
     def __post_init__(self):
         if self.backup_sources is None:
@@ -87,7 +91,9 @@ class MacroDataSource:
             'api_rate_limits': self.api_rate_limits,
             'authentication_method': self.authentication_method,
             'data_coverage_start': self.data_coverage_start,
-            'fred_series_id': self.fred_series_id
+            'fred_series_id': self.fred_series_id,
+            'wb_series_id': self.wb_series_id,           # NEW
+            'wb_country_code': self.wb_country_code      # NEW
         }
 
 # =============================================================================
@@ -191,6 +197,130 @@ SINGAPORE_SOURCES = [
         authentication_method="No authentication required",
         data_coverage_start="1975",
         backup_sources=[]
+    ),
+]
+
+# =============================================================================
+# CHINA MACROECONOMIC DATA SOURCES
+# =============================================================================
+
+CHINA_SOURCES = [
+    # 1. GDP Data - Using IMF Data Explorer
+    MacroDataSource(
+        name="China Real GDP",
+        url="https://data.imf.org/en/Data%20Explorer?datasetUrn=IMF.STA%3AQNEA%287.0.0%29&timeseriesName=CHN.B1GQ.Q.NSA.XDC.Q",
+        country="China",
+        data_type="GDP",
+        source_type="api",
+        authority="International Monetary Fund",
+        description="China Real GDP, quarterly, not seasonally adjusted, LCU",
+        api_url="https://api.imf.org/external/sdmx/3.0/data/dataflow/IMF.STA/QNEA/%2B/CHN.B1GQ.Q.NSA.XDC.Q?dimensionAtObservation=TIME_PERIOD&attributes=dsd&measures=all&includeHistory=false",  # Simplified API endpoint
+        update_frequency="quarterly",
+        data_format="json",
+        requires_api_key=False,
+        extraction_complexity="simple",
+        data_quality_rating=10,
+        api_rate_limits="No specific limits documented",
+        authentication_method="No authentication required",
+        data_coverage_start="2011",
+        backup_sources=[
+            "https://fred.stlouisfed.org/series/CHNGDPNQDSMEI",  # FRED quarterly alternative
+            "http://www.stats.gov.cn/english/PressRelease/"
+        ]
+    ),
+
+    # 2. CPI Data - FRED OECD source
+    MacroDataSource(
+        name="China Consumer Price Index",
+        url="https://fred.stlouisfed.org/series/CHNCPIALLMINMEI",
+        country="China",
+        data_type="CPI",
+        source_type="api",
+        authority="Federal Reserve Bank of St. Louis (OECD source)",
+        description="China Consumer Price Index, all items, monthly",
+        api_url=None,
+        fred_series_id="CHNCPIALLMINMEI",
+        update_frequency="monthly",
+        data_format="json",
+        requires_api_key=True,
+        extraction_complexity="simple",
+        data_quality_rating=9,
+        api_rate_limits="120 requests per 60 seconds",
+        authentication_method="API Key",
+        data_coverage_start="1993",
+        backup_sources=["http://www.stats.gov.cn/english/"]
+    ),
+
+    # 3. Interest Rate - FRED OECD interbank rate
+    MacroDataSource(
+        name="China Interest Rate",
+        url="https://fred.stlouisfed.org/series/IRSTCI01CNM156N",
+        country="China",
+        data_type="Interest_Rate",
+        source_type="api",
+        authority="Federal Reserve Bank of St. Louis (OECD source)",
+        description="China interbank rate/call money rate, immediate rates (< 24 hours), monthly",
+        api_url=None,
+        fred_series_id="IRSTCI01CNM156N",
+        update_frequency="monthly",
+        data_format="json",
+        requires_api_key=True,
+        extraction_complexity="simple",
+        data_quality_rating=8,
+        api_rate_limits="120 requests per 60 seconds",
+        authentication_method="API Key",
+        data_coverage_start="1990",
+        backup_sources=[
+            "https://fred.stlouisfed.org/series/INTDSRCNM193N",  # Discount rate alternative
+            "http://www.pbc.gov.cn/en/3688110/index.html"  # People's Bank of China
+        ]
+    ),
+
+    # 4. Population Data - FRED World Bank series
+    MacroDataSource(
+        name="China Population",
+        url="https://fred.stlouisfed.org/series/POPTOTCNA647NWDB",
+        country="China",
+        data_type="Population",
+        source_type="api",
+        authority="Federal Reserve Bank of St. Louis (World Bank source)",
+        description="China total population",
+        api_url=None,
+        fred_series_id="POPTOTCNA647NWDB",
+        update_frequency="annually",
+        data_format="json",
+        requires_api_key=True,
+        extraction_complexity="simple",
+        data_quality_rating=9,
+        api_rate_limits="120 requests per 60 seconds",
+        authentication_method="API Key",
+        data_coverage_start="1960",
+        backup_sources=["http://www.stats.gov.cn/english/"]
+    ),
+
+    # 5. Property Price Index - FRED BIS real property prices
+    MacroDataSource(
+        name="China Property Price Index",
+        url="https://fred.stlouisfed.org/series/QCNR628BIS",
+        country="China",
+        data_type="Property_Price",
+        source_type="api",
+        authority="Federal Reserve Bank of St. Louis (BIS source)",
+        description="China real residential property prices index, quarterly, not seasonally adjusted",
+        api_url=None,
+        fred_series_id="QCNR628BIS",
+        update_frequency="quarterly",
+        data_format="json",
+        requires_api_key=True,
+        extraction_complexity="simple",
+        data_quality_rating=8,
+        api_rate_limits="120 requests per 60 seconds",
+        authentication_method="API Key",
+        data_coverage_start="2005",
+        backup_sources=[
+            "http://www.stats.gov.cn/english/",
+            "https://fred.stlouisfed.org/series/QCNN628BIS"  # Nominal property prices alternative
+        ]
     ),
 ]
 
@@ -1043,7 +1173,226 @@ MALAYSIA_SOURCES = [
     ),
 ]
 
+# =============================================================================
+# THAILAND MACROECONOMIC DATA SOURCES
+# =============================================================================
 
+THAILAND_SOURCES = [
+    # GDP Data (IMF Database)
+    MacroDataSource(
+        name="Thailand Real GDP",
+        url="https://data.imf.org/en/Data%20Explorer?datasetUrn=IMF.STA%3AQNEA%287.0.0%29&timeseriesName=THA.B1GQ.Q.SA.XDC.Q",
+        country="Thailand",
+        data_type="GDP",
+        source_type="api",
+        authority="International Monetary Fund",
+        description="Thailand Real GDP, quarterly, seasonally adjusted",
+        api_url="https://api.imf.org/external/sdmx/3.0/data/dataflow/IMF.STA/QNEA/7.0.0/THA.B1GQ.Q.SA.XDC.Q?dimensionAtObservation=TIME_PERIOD&attributes=dsd&measures=all&includeHistory=false",
+        api_documentation="https://data.imf.org/docs/",
+        update_frequency="quarterly",
+        data_format="json",
+        requires_api_key=False,
+        extraction_complexity="medium",
+        data_quality_rating=10,
+        api_rate_limits="No specific limits documented",
+        authentication_method="No authentication required",
+        data_coverage_start="2003",
+        backup_sources=["https://www.bot.or.th/english/statistics/econdata/data/"]
+    ),
+    
+    # CPI Data (IMF Database)
+    MacroDataSource(
+        name="Thailand Consumer Price Index",
+        url="https://data.imf.org/en/Data%20Explorer?datasetUrn=IMF.STA%3ACPI%284.0.0%29&timeseriesName=THA.CPI._T.IX.M",
+        country="Thailand",
+        data_type="CPI",
+        source_type="api",
+        authority="International Monetary Fund",
+        description="Thailand Consumer Price Index, monthly",
+        api_url="https://api.imf.org/external/sdmx/3.0/data/dataflow/IMF.STA/CPI/+/THA.CPI._T.IX.M?dimensionAtObservation=TIME_PERIOD&attributes=dsd&measures=all&includeHistory=false",
+        update_frequency="monthly",
+        data_format="json",
+        requires_api_key=False,
+        extraction_complexity="medium",
+        data_quality_rating=10,
+        api_rate_limits="No specific limits documented",
+        authentication_method="No authentication required",
+        data_coverage_start="2010",
+        backup_sources=["https://www.bot.or.th/english/statistics/econdata/data/"]
+    ),
+    
+    # Interest Rate (Bank of Thailand - Special Excel Download)
+    MacroDataSource(
+        name="Thailand Interest Rate (THOR)",
+        url="https://app.bot.or.th/THOR/en",
+        country="Thailand",
+        data_type="Interest_Rate",
+        source_type="excel_download",
+        authority="Bank of Thailand",
+        description="Thailand Historical Over-night Repo rate (THOR) from 2015, daily data",
+        api_url="https://www.thaibma.or.th/api/thor/download-all",
+        api_documentation="https://app.bot.or.th/THOR/en",
+        update_frequency="daily",
+        data_format="xlsx",
+        requires_api_key=False,
+        extraction_complexity="complex",  # Special handling required for Excel download
+        real_time_data=True,
+        data_quality_rating=10,
+        api_rate_limits="No specific limits documented",
+        authentication_method="No authentication required",
+        data_coverage_start="2015",
+        backup_sources=[
+            "https://app.bot.or.th/THOR/en",
+            "https://www.bot.or.th/english/statistics/financialmarkets/interestrate/"
+        ],
+    ),
+    
+    # Population (FRED Database)
+    MacroDataSource(
+        name="Thailand Population",
+        url="https://fred.stlouisfed.org/series/POPTOTTHA647NWDB",
+        country="Thailand",
+        data_type="Population",
+        source_type="api",
+        authority="World Bank via FRED",
+        description="Thailand total population, annual",
+        api_url=None,  # Will be constructed dynamically
+        fred_series_id="POPTOTTHA647NWDB",
+        api_documentation="https://fred.stlouisfed.org/docs/api/fred/",
+        update_frequency="annually",
+        data_format="json",
+        requires_api_key=True,
+        extraction_complexity="simple",
+        data_quality_rating=9,
+        api_rate_limits="120 requests per 60 seconds",
+        authentication_method="API Key",
+        data_coverage_start="1960",
+        backup_sources=["https://www.nso.go.th/sites/2014en/Pages/Census/Population-and-Housing/The-2020-population-and-housing-census.aspx"]
+    ),
+    
+    # Property Price Index (FRED Database)
+    MacroDataSource(
+        name="Thailand Residential Property Price Index",
+        url="https://fred.stlouisfed.org/series/QTHR628BIS",
+        country="Thailand",
+        data_type="Property_Price",
+        source_type="api",
+        authority="Bank for International Settlements (BIS) via FRED",
+        description="Thailand Residential Property Price Index, quarterly",
+        api_url=None,  # Will be constructed dynamically
+        fred_series_id="QTHR628BIS",
+        api_documentation="https://fred.stlouisfed.org/docs/api/fred/",
+        update_frequency="quarterly",
+        data_format="json",
+        requires_api_key=True,
+        extraction_complexity="simple",
+        data_quality_rating=9,
+        api_rate_limits="120 requests per 60 seconds",
+        authentication_method="API Key",
+        data_coverage_start="1991",
+        backup_sources=["https://www.bot.or.th/english/statistics/property/"]
+    ),
+]
+
+# =============================================================================
+# VIETNAM MACROECONOMIC DATA SOURCES
+# =============================================================================
+
+VIETNAM_SOURCES = [
+    # GDP Data
+    MacroDataSource(
+        name="Vietnam Real GDP",
+        url="https://databank.worldbank.org/reports.aspx?source=2&series=NY.GDP.MKTP.KN&country=VNM",
+        country="Vietnam",
+        data_type="GDP",
+        source_type="api",
+        authority="World Bank",
+        description="Vietnam GDP at constant 2015 prices (Local Currency Unit), annual",
+        wb_series_id="NY.GDP.MKTP.KN",
+        wb_country_code="VNM",
+        update_frequency="annually",
+        data_format="json",
+        requires_api_key=False,
+        extraction_complexity="simple",
+        data_quality_rating=9,
+        api_rate_limits="No specific limits documented",
+        authentication_method="No authentication required",
+        data_coverage_start="1960",
+        backup_sources=["https://fred.stlouisfed.org/series/VNMNGDPRPCPPPT"]
+    ),
+    
+    # CPI Data
+    MacroDataSource(
+        name="Vietnam Consumer Price Index",
+        url="https://databank.worldbank.org/reports.aspx?source=2&series=FP.CPI.TOTL&country=VNM",
+        country="Vietnam",
+        data_type="CPI",
+        source_type="api",
+        authority="World Bank",
+        description="Vietnam Consumer Price Index (2010 = 100), annual",
+        wb_series_id="FP.CPI.TOTL",
+        wb_country_code="VNM",
+        update_frequency="annually",
+        data_format="json",
+        requires_api_key=False,
+        extraction_complexity="simple",
+        data_quality_rating=9,
+        api_rate_limits="No specific limits documented",
+        authentication_method="No authentication required",
+        data_coverage_start="1960",
+        backup_sources=["https://fred.stlouisfed.org/series/FPCPITOTLZGVNM"]
+    ),
+    
+    # Population
+    MacroDataSource(
+        name="Vietnam Population",
+        url="https://fred.stlouisfed.org/series/POPTOTVNA647NWDB",
+        country="Vietnam",
+        data_type="Population",
+        source_type="api",
+        authority="World Bank via FRED",
+        description="Vietnam total population, annual",
+        api_url=None,  # Will be constructed dynamically
+        fred_series_id="POPTOTVNA647NWDB",
+        update_frequency="annually",
+        data_format="json",
+        requires_api_key=True,
+        extraction_complexity="simple",
+        data_quality_rating=9,
+        api_rate_limits="120 requests per 60 seconds",
+        authentication_method="API Key",
+        data_coverage_start="1960",
+        backup_sources=["https://www.gso.gov.vn/en/"]
+    ),
+    
+    # Interest Rate - DROPPED for now due to data accessibility issues
+    # MacroDataSource(
+    #     name="Vietnam Interest Rate",
+    #     url="https://dttktt.sbv.gov.vn/webcenter/portal/en/home/rm/ir/ibir",
+    #     country="Vietnam",
+    #     data_type="Interest_Rate", 
+    #     source_type="manual_scraping",
+    #     authority="State Bank of Vietnam",
+    #     description="Vietnam interbank interest rates, daily",
+    #     update_frequency="daily",
+    #     data_format="html",
+    #     extraction_complexity="very_high",
+    #     data_quality_rating=8,
+    #     notes="DROPPED: Daily data only, requires manual clicking for historical data"
+    # ),
+    
+    # Property Price Index - NOT AVAILABLE
+    # MacroDataSource(
+    #     name="Vietnam Property Price Index",
+    #     url="Not available",
+    #     country="Vietnam", 
+    #     data_type="Property_Price",
+    #     source_type="not_available",
+    #     authority="Not available",
+    #     description="Vietnam does not publish official property price statistics",
+    #     notes="BIS does not have Vietnam property price data. No official government property price index available."
+    # ),
+]
 
 # =============================================================================
 # MARKET INDICES SOURCES
@@ -1229,88 +1578,6 @@ MARKET_INDICES_SOURCES = [
 ]
 
 # # =============================================================================
-# # CHINA MACROECONOMIC DATA SOURCES (Keep unchanged for now)
-# # =============================================================================
-
-# CHINA_SOURCES = [
-#     # GDP Data
-#     MacroDataSource(
-#         name="China GDP",
-#         url="http://www.stats.gov.cn/english/PressRelease/",
-#         country="China",
-#         data_type="GDP",
-#         source_type="web_scraping",
-#         authority="National Bureau of Statistics of China",
-#         description="China GDP quarterly data from official statistics",
-#         update_frequency="quarterly",
-#         data_format="html",
-#         extraction_complexity="complex",
-#         data_quality_rating=8,
-#         backup_sources=["https://fred.stlouisfed.org/series/MKTGDPCNA646NWDB"]
-#     ),
-    
-#     # CPI Data - FRED has good China data
-#     MacroDataSource(
-#         name="China Consumer Price Index",
-#         url="https://fred.stlouisfed.org/series/CHNCPIALLMINMEI",
-#         country="China",
-#         data_type="CPI",
-#         source_type="api",
-#         authority="Federal Reserve Bank of St. Louis (OECD source)",
-#         description="China Consumer Price Index, all items, monthly",
-#         api_url=None,
-#         fred_series_id="CHNCPIALLMINMEI",
-#         update_frequency="monthly",
-#         data_format="json",
-#         requires_api_key=True,
-#         extraction_complexity="simple",
-#         data_quality_rating=9,
-#         api_rate_limits="120 requests per 60 seconds",
-#         authentication_method="API Key",
-#         data_coverage_start="1985",
-#         backup_sources=["http://www.stats.gov.cn/english/"]
-#     ),
-    
-#     # People's Bank of China Interest Rates
-#     MacroDataSource(
-#         name="China Benchmark Interest Rate",
-#         url="http://www.pbc.gov.cn/en/3688110/index.html",
-#         country="China",
-#         data_type="Interest_Rate",
-#         source_type="web_scraping",
-#         authority="People's Bank of China",
-#         description="China benchmark lending rate",
-#         update_frequency="irregular",
-#         data_format="html",
-#         extraction_complexity="complex",
-#         data_quality_rating=9,
-#         backup_sources=["https://fred.stlouisfed.org/series/INTDSRCNM193N"]
-#     ),
-    
-#     # China Population
-#     MacroDataSource(
-#         name="China Population",
-#         url="https://fred.stlouisfed.org/series/SPPOPTOATCHN",
-#         country="China",
-#         data_type="Population",
-#         source_type="api",
-#         authority="Federal Reserve Bank of St. Louis (World Bank source)",
-#         description="China total population",
-#         api_url=None,
-#         fred_series_id="SPPOPTOATCHN",
-#         update_frequency="annually",
-#         data_format="json",
-#         requires_api_key=True,
-#         extraction_complexity="simple",
-#         data_quality_rating=9,
-#         api_rate_limits="120 requests per 60 seconds",
-#         authentication_method="API Key",
-#         data_coverage_start="1960",
-#         backup_sources=["http://www.stats.gov.cn/english/"]
-#     ),
-# ]
-
-# # =============================================================================
 # # HONG KONG MACROECONOMIC DATA SOURCES (Keep unchanged for now)
 # # =============================================================================
 
@@ -1405,14 +1672,16 @@ ENHANCED_MACROECONOMIC_DATA_SOURCES = {
     "singapore": SINGAPORE_SOURCES,
     "united_states": US_SOURCES,
     "european_union": EU_SOURCES,
-    # "china": CHINA_SOURCES,
+    "china": CHINA_SOURCES,
     # "hong_kong": HONG_KONG_SOURCES,
     "united_kingdom": UK_SOURCES,      
     "india": INDIA_SOURCES,            
     "japan": JAPAN_SOURCES,
     "indonesia": INDONESIA_SOURCES,
     "malaysia": MALAYSIA_SOURCES,
-    "market_indices": MARKET_INDICES_SOURCES
+    "thailand": THAILAND_SOURCES,
+    "vietnam": VIETNAM_SOURCES,
+    "market_indices": MARKET_INDICES_SOURCES,
 }
 
 # Enhanced Helper functions
@@ -1435,7 +1704,9 @@ def get_sources_by_country(country: str) -> List[MacroDataSource]:
         'united_kingdom': 'united_kingdom',  
         'india': 'india',                 
         'indonesia': 'indonesia',
-        'malaysia': 'malaysia',          
+        'malaysia': 'malaysia', 
+        'thailand': 'thailand',
+        'vietnam': 'vietnam',       
     }
     
     key = country_map.get(country.lower(), country.lower())
