@@ -1,5 +1,6 @@
 """
 Clean Rule-Based Data Extraction Tools
+Fixed version with proper structure and all requested improvements
 """
 
 import pandas as pd
@@ -25,7 +26,6 @@ class SimpleRuleBasedExtractor(BaseTool):
     
     name: str = "simple_rule_based_extractor"
     description: str = "Extract data using simple rules and create Excel files"
-    
     def _run(self, validation_results: str) -> str:
         """Extract data and create Excel files directly"""
         try:
@@ -172,7 +172,7 @@ class SimpleRuleBasedExtractor(BaseTool):
             return any(keyword in name_lower for keyword in market_keywords)
     
     def _extract_macro_data(self, source: Dict[str, str], fred_api_key: str) -> Optional[Dict[str, Any]]:
-        """Extract macro data using simple rules"""
+        """Extract macro data using universal methods + country-specific methods"""
         try:
             url = source.get("url", "")
             name = source.get("name", "")
@@ -183,17 +183,27 @@ class SimpleRuleBasedExtractor(BaseTool):
                 print(f"   Warning: Could not find source object for {name}")
                 return None
             
-            # Extract based on URL
-            if "data.gov.sg" in url:
-                df = self._extract_singapore_api(macro_source)
-            elif "data.gov.my" in url:                                    # ADD MALAYSIA CONDITION
-                df = self._extract_malaysia_api(macro_source)
-            elif "fred.stlouisfed.org" in url:
+            # UNIVERSAL METHODS FIRST
+            if "fred.stlouisfed.org" in url: # FRED API
                 df = self._extract_fred_api(macro_source, fred_api_key)
-            elif "financialmarkets.bnm.gov.my" in url:                    # ADD BNM CONDITION
+            elif "data.imf.org" in url or "api.imf.org" in url: # IMF API
+                df = self._extract_imf_api(macro_source)
+            elif hasattr(macro_source, 'wb_series_id') and macro_source.wb_series_id:  # World Bank API
+                df = self._extract_world_bank_data(macro_source)
+            elif macro_source.source_type == 'excel_download': # Excel/CSV download
+                df = self._extract_excel_download(macro_source)
+            
+            # COUNTRY-SPECIFIC METHODS
+            elif "data.gov.sg" in url: # Singapore API
+                df = self._extract_singapore_api(macro_source)
+            elif "data.gov.my" in url: # Malaysia API
+                df = self._extract_malaysia_api(macro_source)
+            elif "financialmarkets.bnm.gov.my" in url: # Malaysia BNM
                 df = self._extract_malaysia_bnm(macro_source)
+            
             else:
-                df = self._create_test_data(macro_source)
+                print(f"   ❌ Unknown source type or URL pattern")
+                df = None
             
             if df is not None and len(df) > 0:
                 return {
@@ -281,13 +291,14 @@ class SimpleRuleBasedExtractor(BaseTool):
     def _extract_fred_api(self, source, fred_api_key: str) -> Optional[pd.DataFrame]:
         """Extract from FRED API with enhanced data cleaning and detailed removal logging"""
         if not fred_api_key:
-            return self._create_test_data(source)
+            return None
         
         try:
             # First, get series metadata to extract real units
             series_id = getattr(source, 'fred_series_id', 'Unknown')
             if series_id == 'Unknown':
-                return self._create_test_data(source)
+                print(f"   ❌ No FRED series ID found")
+                return None
             
             # Get series info for units
             series_info_url = f"https://api.stlouisfed.org/fred/series?series_id={series_id}&api_key={fred_api_key}&file_type=json"
@@ -307,7 +318,8 @@ class SimpleRuleBasedExtractor(BaseTool):
             # Now get the actual data
             api_url = source.get_fred_api_url()
             if not api_url:
-                return self._create_test_data(source)
+                print(f"   ❌ Could not construct FRED API URL")
+                return None
             
             print(f"   Getting observations from FRED API...")
             response = requests.get(api_url, timeout=30)
@@ -315,7 +327,8 @@ class SimpleRuleBasedExtractor(BaseTool):
             
             data = response.json()
             if 'observations' not in data:
-                return self._create_test_data(source)
+                print(f"   ❌ No observations in FRED response")
+                return None
             
             observations = data['observations']
             print(f"   Raw observations from FRED: {len(observations)}")
@@ -438,7 +451,7 @@ class SimpleRuleBasedExtractor(BaseTool):
             
             if len(df) == 0:
                 print(f"   ❌ No valid data after cleaning!")
-                return self._create_test_data(source)
+                return None
             
             # Format date as clean YYYY-MM-DD (remove time component)
             df['date'] = df['date'].dt.strftime('%Y-%m-%d')
@@ -484,7 +497,7 @@ class SimpleRuleBasedExtractor(BaseTool):
             print(f"   ❌ FRED API error: {e}")
             import traceback
             traceback.print_exc()
-            return self._create_test_data(source)
+            return None
     
     def _extract_malaysia_api(self, source) -> Optional[pd.DataFrame]:
         """Extract from Malaysia Government API"""
@@ -518,7 +531,7 @@ class SimpleRuleBasedExtractor(BaseTool):
             
         except Exception as e:
             print(f"   Malaysia API error: {e}")
-            return self._create_test_data(source)
+            return None
     
     def _extract_malaysia_bnm(self, source) -> Optional[pd.DataFrame]:
         """Extract from Bank Negara Malaysia website"""
@@ -541,22 +554,7 @@ class SimpleRuleBasedExtractor(BaseTool):
             
         except Exception as e:
             print(f"   Malaysia BNM error: {e}")
-            return self._create_test_data(source)
-
-    def _create_test_data(self, source) -> pd.DataFrame:
-        """Create simple test data"""
-        dates = pd.date_range('2020-01-01', '2024-12-31', freq='QE')
-        values = [100 + i * 0.5 for i in range(len(dates))]
-        
-        return pd.DataFrame({
-            'date': dates.strftime('%Y-%m-%d'),
-            'value': values,
-            'source_name': source.name,
-            'data_type': source.data_type,
-            'country': source.country,
-            'unit': 'Test units',
-            'extraction_time': datetime.now().isoformat()
-        })
+            return None
     
     def _extract_market_data(self, source: Dict[str, str]) -> Optional[Dict[str, Any]]:
         """Extract market data using yfinance - updated for 2020+ with last trading day"""
@@ -664,13 +662,13 @@ class SimpleRuleBasedExtractor(BaseTool):
         """Find macro source object"""
         try:
             from macro_sources import (
-            SINGAPORE_SOURCES, US_SOURCES, EU_SOURCES, JAPAN_SOURCES,
-            UK_SOURCES, INDIA_SOURCES, INDONESIA_SOURCES, MALAYSIA_SOURCES
+            SINGAPORE_SOURCES, CHINA_SOURCES, US_SOURCES, EU_SOURCES, JAPAN_SOURCES,
+            UK_SOURCES, INDIA_SOURCES, INDONESIA_SOURCES, MALAYSIA_SOURCES, THAILAND_SOURCES, VIETNAM_SOURCES
         )
             
-            all_sources = (SINGAPORE_SOURCES + US_SOURCES + EU_SOURCES + 
+            all_sources = (SINGAPORE_SOURCES + CHINA_SOURCES + US_SOURCES + EU_SOURCES + 
                            JAPAN_SOURCES + UK_SOURCES + INDIA_SOURCES + 
-                           INDONESIA_SOURCES + MALAYSIA_SOURCES)
+                           INDONESIA_SOURCES + MALAYSIA_SOURCES + THAILAND_SOURCES + VIETNAM_SOURCES)
             
             for source in all_sources:
                 if source.name == name:
@@ -685,13 +683,14 @@ class SimpleRuleBasedExtractor(BaseTool):
         try:
             # Import all sources and find matching URL
             from macro_sources import (
-            SINGAPORE_SOURCES, US_SOURCES, EU_SOURCES, JAPAN_SOURCES,
-            UK_SOURCES, INDIA_SOURCES, INDONESIA_SOURCES,  # NEW IMPORTS
+            SINGAPORE_SOURCES, CHINA_SOURCES, US_SOURCES, EU_SOURCES, JAPAN_SOURCES,
+            UK_SOURCES, INDIA_SOURCES, INDONESIA_SOURCES, THAILAND_SOURCES, 
             MARKET_INDICES_SOURCES
             )
-            all_sources = (SINGAPORE_SOURCES + US_SOURCES + EU_SOURCES + 
+            all_sources = (SINGAPORE_SOURCES + CHINA_SOURCES + US_SOURCES + EU_SOURCES + 
                            JAPAN_SOURCES + UK_SOURCES + INDIA_SOURCES + 
-                           INDONESIA_SOURCES + MARKET_INDICES_SOURCES)
+                           INDONESIA_SOURCES + THAILAND_SOURCES + 
+                           MARKET_INDICES_SOURCES)
             # First try exact match
             for source in all_sources:
                 if source.name == source_name:
@@ -711,6 +710,410 @@ class SimpleRuleBasedExtractor(BaseTool):
             print(f"   Error finding URL: {e}")
             return "N/A"
     
+    def _extract_excel_download(self, source) -> Optional[pd.DataFrame]:
+        """
+        FIXED: Extract data from Excel/CSV download with proper format detection
+        Uses self.session for HTTP requests
+        """
+        try:
+            print(f"   🔄 File Download (Fixed): {source.api_url}")
+            
+            response = requests.get(source.api_url, timeout=60)
+            if response.status_code != 200:
+                print(f"   ❌ Download failed: {response.status_code}")
+                return None
+            
+            # Check content type
+            content_type = response.headers.get('content-type', '').lower()
+            print(f"   📄 Content type: {content_type}")
+            
+            # FIXED: Determine if it's CSV or Excel based on content
+            content_preview = response.content[:1000].decode('utf-8', errors='ignore')
+            is_csv = (',' in content_preview and '\n' in content_preview and 
+                     not content_preview.startswith('PK'))  # Excel files start with PK
+            
+            # Save to temporary file with appropriate extension
+            import tempfile
+            import os
+            
+            if is_csv:
+                temp_suffix = '.csv'
+                print(f"   📊 Detected CSV format")
+            else:
+                temp_suffix = '.xlsx'
+                print(f"   📊 Detected Excel format")
+            
+            with tempfile.NamedTemporaryFile(delete=False, suffix=temp_suffix) as temp_file:
+                temp_file.write(response.content)
+                temp_file_path = temp_file.name
+            
+            try:
+                # FIXED: Read based on actual format
+                if is_csv:
+                    # Try different encodings for CSV
+                    for encoding in ['utf-8', 'iso-8859-1', 'cp1252']:
+                        try:
+                            df = pd.read_csv(temp_file_path, encoding=encoding)
+                            print(f"   📊 Parsed as CSV ({encoding}): {len(df)} rows, {len(df.columns)} columns")
+                            break
+                        except UnicodeDecodeError:
+                            continue
+                        except Exception as e:
+                            if encoding == 'cp1252':  # Last attempt
+                                print(f"   ❌ CSV parsing failed: {e}")
+                                return None
+                            continue
+                else:
+                    # Excel format
+                    try:
+                        df = pd.read_excel(temp_file_path, engine='openpyxl')
+                        print(f"   📊 Parsed as Excel: {len(df)} rows, {len(df.columns)} columns")
+                    except Exception as e:
+                        print(f"   ❌ Excel parsing failed: {e}")
+                        return None
+                
+                if df is None or len(df) == 0:
+                    print(f"   ❌ Could not parse downloaded file")
+                    return None
+                
+                # Show column info for debugging
+                print(f"   📋 Columns: {list(df.columns)}")
+                
+                # FIXED: Enhanced date and value column detection for Thailand THOR data
+                date_col = None
+                value_col = None
+                
+                for col in df.columns:
+                    col_str = str(col).lower().strip()
+                    
+                    # Look for date columns
+                    if col_str in ['as of', 'date', 'วันที่']:
+                        date_col = col
+                        print(f"   📅 Found date column: {col}")
+                        break
+                    elif any(keyword in col_str for keyword in ['date', 'day', 'time']):
+                        if date_col is None:
+                            date_col = col
+                            print(f"   📅 Found potential date column: {col}")
+                
+                for col in df.columns:
+                    col_str = str(col).lower().strip()
+                    
+                    # Look for rate/value columns
+                    if col_str in ['rate', 'อัตรา']:
+                        value_col = col
+                        print(f"   💰 Found value column: {col}")
+                        break
+                    elif any(keyword in col_str for keyword in ['value', 'price']) and pd.api.types.is_numeric_dtype(df[col]):
+                        if value_col is None:
+                            value_col = col
+                            print(f"   💰 Found potential value column: {col}")
+                
+                # Filter to THOR O/N rates if applicable
+                if 'Code' in df.columns and 'Tenor' in df.columns:
+                    thor_mask = (df['Code'] == 'THOR') & (df['Tenor'] == 'O/N')
+                    df_filtered = df[thor_mask].copy()
+                    print(f"   🔍 Filtered to THOR O/N rates: {len(df)} → {len(df_filtered)} records")
+                    df = df_filtered
+                
+                if date_col is not None and value_col is not None and len(df) > 0:
+                    # Clean and format data
+                    clean_df = df[[date_col, value_col]].copy()
+                    clean_df.columns = ['date', 'value']
+                    
+                    # Remove missing values
+                    clean_df = clean_df.dropna()
+                    clean_df['value'] = pd.to_numeric(clean_df['value'], errors='coerce')
+                    clean_df = clean_df.dropna()
+                    
+                    # Date conversion
+                    print(f"   📅 Sample date values: {clean_df['date'].head(3).tolist()}")
+                    
+                    date_converted = False
+                    for date_format in ['%m/%d/%Y', '%d/%m/%Y', '%Y-%m-%d', '%Y/%m/%d']:
+                        try:
+                            clean_df['date'] = pd.to_datetime(clean_df['date'], format=date_format)
+                            print(f"   ✅ Date format matched: {date_format}")
+                            date_converted = True
+                            break
+                        except:
+                            continue
+                    
+                    if not date_converted:
+                        try:
+                            clean_df['date'] = pd.to_datetime(clean_df['date'], errors='coerce')
+                            date_converted = True
+                            print(f"   ✅ Automatic date parsing succeeded")
+                        except:
+                            pass
+                    
+                    if not date_converted:
+                        print(f"   ❌ Could not parse dates")
+                        return None
+                    
+                    clean_df = clean_df.dropna()
+                    
+                    if len(clean_df) == 0:
+                        print(f"   ❌ No valid records after date conversion")
+                        return None
+                    
+                    # FIXED: Add proper metadata to match other extraction methods
+                    clean_df['source_name'] = source.name
+                    clean_df['country'] = source.country
+                    clean_df['data_type'] = source.data_type
+                    clean_df['unit'] = 'Percent per annum'
+                    clean_df['source'] = source.authority
+                    clean_df['extraction_time'] = datetime.now().isoformat()
+                    
+                    # Sort by date and format
+                    clean_df = clean_df.sort_values('date')
+                    clean_df['date'] = clean_df['date'].dt.strftime('%Y-%m-%d')
+                    
+                    print(f"   ✅ File extraction successful: {len(clean_df)} records")
+                    print(f"   📅 Date range: {clean_df['date'].min()} to {clean_df['date'].max()}")
+                    
+                    return clean_df
+                else:
+                    print(f"   ❌ Could not identify date/value columns or no data")
+                    return None
+                    
+            finally:
+                # Clean up temp file
+                if os.path.exists(temp_file_path):
+                    os.unlink(temp_file_path)
+                    
+        except Exception as e:
+            print(f"   ❌ File download error: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+
+    # Extraction method for IMF API
+    def _extract_imf_api(self, source) -> Optional[pd.DataFrame]:
+        """Extract data from IMF API (Thailand GDP, CPI)"""
+        try:
+            import urllib.request
+            import json
+            
+            print(f"   🔄 IMF API: {source.api_url}")
+            
+            headers = {
+                'Cache-Control': 'no-cache',
+                'User-Agent': 'Economic-Data-Pipeline/1.0'
+            }
+            
+            req = urllib.request.Request(source.api_url, headers=headers)
+            response = urllib.request.urlopen(req, timeout=30)
+            
+            if response.getcode() != 200:
+                print(f"   ❌ IMF API request failed: {response.getcode()}")
+                return None
+            
+            data = json.loads(response.read().decode('utf-8'))
+            
+            # Navigate to the data structure
+            if 'data' not in data or 'dataSets' not in data['data']:
+                print(f"   ❌ Invalid IMF response structure")
+                return None
+                
+            dataset = data['data']['dataSets'][0]
+            series_data = dataset.get('series', {})
+            
+            # Extract time periods from structure
+            time_values = self._extract_imf_time_periods(data)
+            
+            if not time_values:
+                print(f"   ❌ Could not extract time periods from IMF response")
+                return None
+            
+            # Process series data
+            all_records = []
+            
+            for series_key, series_info in series_data.items():
+                observations = series_info.get('observations', {})
+                
+                for obs_key, obs_data in observations.items():
+                    try:
+                        time_index = int(obs_key)
+                        
+                        if isinstance(obs_data, list) and len(obs_data) > 0:
+                            value = obs_data[0]
+                            
+                            if value is not None:
+                                numeric_value = float(value)
+                                
+                                if time_index < len(time_values):
+                                    time_period = time_values[time_index]
+                                    
+                                    # Convert time format based on data type
+                                    if source.data_type == 'GDP':
+                                        date_str = self._convert_quarterly_to_date(time_period)
+                                    else:  # CPI
+                                        date_str = self._convert_imf_monthly_to_date(time_period)
+                                    
+                                    if date_str:
+                                        all_records.append({
+                                            'date': date_str,
+                                            'value': numeric_value,
+                                            'time_period': time_period,
+                                            'country': source.country,
+                                            'data_type': source.data_type,
+                                            'source_name': source.name, 
+                                            'source': source.authority,
+                                            'extraction_time': pd.Timestamp.now().isoformat()
+                                        })
+                    
+                    except (ValueError, IndexError, TypeError):
+                        continue
+            
+            if all_records:
+                df = pd.DataFrame(all_records)
+                df['date'] = pd.to_datetime(df['date'])
+                df = df.sort_values('date')
+                df = df.drop_duplicates(subset=['date'], keep='last')
+                df['date'] = df['date'].dt.strftime('%Y-%m-%d')
+                
+                if 'source_name' not in df.columns and 'source' in df.columns:
+                    df['source_name'] = df['source']
+
+                print(f"   ✅ IMF extraction successful: {len(df)} records")
+                return df
+            else:
+                print(f"   ❌ No valid records extracted from IMF API")
+                return None
+                
+        except Exception as e:
+            print(f"   ❌ IMF API error: {e}")
+            return None
+
+    # Helper methods for IMF data processing
+    def _extract_imf_time_periods(self, data: dict) -> list:
+        """Extract time periods from IMF API response structure"""
+        try:
+            if 'data' in data and 'structures' in data['data'] and len(data['data']['structures']) > 0:
+                structure = data['data']['structures'][0]
+                dimensions = structure.get('dimensions', {})
+                for dim in dimensions.get('observation', []):
+                    if dim.get('id') == 'TIME_PERIOD':
+                        values = dim.get('values', [])
+                        time_periods = [v['value'] for v in values if isinstance(v, dict) and 'value' in v]
+                        if time_periods:
+                            return time_periods
+            return []
+        except Exception:
+            return []
+
+    def _convert_quarterly_to_date(self, time_period: str) -> Optional[str]:
+        """Convert quarterly time period to date (2024-Q1 -> 2024-01-01)"""
+        try:
+            if not time_period or '-Q' not in time_period:
+                return None
+            
+            parts = time_period.split('-Q')
+            if len(parts) != 2:
+                return None
+            
+            year = parts[0]
+            quarter = parts[1]
+            
+            quarter_months = {'1': '01', '2': '04', '3': '07', '4': '10'}
+            month = quarter_months.get(quarter)
+            
+            if month and len(year) == 4 and year.isdigit():
+                return f"{year}-{month}-01"
+            
+            return None
+        except Exception:
+            return None
+
+    def _convert_imf_monthly_to_date(self, time_period: str) -> Optional[str]:
+        """Convert IMF monthly time period to date (2010-M01 -> 2010-01-01)"""
+        try:
+            if not time_period or '-M' not in time_period:
+                return None
+            
+            parts = time_period.split('-M')
+            if len(parts) != 2:
+                return None
+            
+            year = parts[0]
+            month = parts[1].zfill(2)
+            
+            if len(year) == 4 and year.isdigit() and len(month) == 2 and month.isdigit():
+                month_int = int(month)
+                if 1 <= month_int <= 12:
+                    return f"{year}-{month}-01"
+            
+            return None
+        except Exception:
+            return None
+
+    # Extraction method for World Bank API:
+    def _extract_world_bank_data(self, source) -> Optional[pd.DataFrame]:
+        """Extract data from World Bank API using wbgapi - Universal method"""
+        try:
+            # Import wbgapi here to avoid dependency issues
+            import wbgapi as wb
+            
+            series_id = source.wb_series_id
+            country_code = source.wb_country_code
+            
+            if not series_id or not country_code:
+                print(f"   ❌ Missing World Bank identifiers")
+                return None
+            
+            print(f"   🔄 World Bank API: {series_id} for {country_code}")
+            
+            # Get data using wbgapi
+            data = wb.data.DataFrame(series_id, country_code)
+            
+            if data.empty:
+                print(f"   ❌ No data returned from World Bank API")
+                return None
+            
+            # Process the data (reuse logic from vietnam_data_extractor)
+            records = []
+            data_reset = data.reset_index()
+            
+            # Check if data has year columns or time index
+            for col in data_reset.columns:
+                if col not in ['Country', 'economy', 'time']:
+                    try:
+                        year = int(str(col).replace('YR', ''))
+                        if 1960 <= year <= datetime.now().year:
+                            for _, row in data_reset.iterrows():
+                                value = row[col]
+                                if pd.notna(value) and value != 0:
+                                    date_str = f"{year}-12-31"
+                                    records.append({
+                                        'date': date_str,
+                                        'value': float(value)
+                                    })
+                    except (ValueError, TypeError):
+                        continue
+            
+            if not records:
+                print(f"   ❌ No valid records found after processing")
+                return None
+            
+            df = pd.DataFrame(records)
+            df['date'] = pd.to_datetime(df['date'])
+            df = df.sort_values('date').reset_index(drop=True)
+            df['date'] = df['date'].dt.strftime('%Y-%m-%d')
+            
+            # Add metadata
+            df['source_name'] = source.name
+            df['country'] = source.country
+            df['data_type'] = source.data_type
+            df['extraction_time'] = datetime.now().isoformat()
+            
+            print(f"   ✅ Extracted {len(df)} records from World Bank")
+            return df
+            
+        except Exception as e:
+            print(f"   ❌ World Bank API error: {e}")
+            return None
+
     def _create_macro_excel(self, country: str, country_data: Dict[str, pd.DataFrame], output_dir: Path) -> Optional[str]:
         """Create Excel file for macro data with enhanced contents sheet matching original format"""
         try:
