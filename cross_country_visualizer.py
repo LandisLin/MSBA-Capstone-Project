@@ -1,6 +1,6 @@
 """
-Cross-Country Economic Data Visualizer - Clean Version Using Shared Configuration
-Compare economic indicators across multiple countries
+Cross-Country Economic Data Visualizer - Enhanced with GDP Charts
+Compare economic indicators across multiple countries using original naming
 """
 
 import pandas as pd
@@ -20,6 +20,40 @@ from visualization_config import (
     load_country_data
 )
 
+# Import enhanced GDP calculator with error handling
+try:
+    from worldbank_data import WorldGDPCalculator
+    WB_AVAILABLE = True
+except ImportError:
+    WB_AVAILABLE = False
+    print("⚠️ World Bank GDP calculator not available")
+
+def detect_data_frequency_for_cross_country(df):
+    """Detect data frequency for cross-country growth calculations"""
+    if len(df) < 2:
+        return "annual"
+    
+    median_days = df['date'].diff().median().days
+    
+    if median_days <= 35:
+        return "monthly" 
+    elif median_days <= 100:
+        return "quarterly"
+    else:
+        return "annual"
+
+def get_appropriate_growth_periods_cross_country(df, indicator):
+    """Get growth periods based on actual data frequency for cross-country comparison"""
+    frequency = detect_data_frequency_for_cross_country(df)
+    
+    if indicator in ['GDP', 'CPI']:
+        periods_map = {"monthly": 12, "quarterly": 4, "annual": 1}
+        return periods_map[frequency]
+    elif indicator == 'Population':
+        return 1  # Population is typically annual
+    else:
+        return 1
+
 class CrossCountryVisualizer:
     """Cross-country economic data visualizer"""
     
@@ -27,6 +61,7 @@ class CrossCountryVisualizer:
         """Initialize with data directory"""
         self.data_dir = data_dir
         self.country_data = {}
+        self.wb_data = {}  # World Bank data
         self.available_countries = []
         self.common_indicators = []
         
@@ -36,6 +71,12 @@ class CrossCountryVisualizer:
         # Load all country data
         self._load_all_countries()
         self._identify_common_indicators()
+        
+        # Fetch World Bank data if available
+        if WB_AVAILABLE:
+            self._fetch_world_bank_data()
+        else:
+            print("⚠️ Skipping World Bank data (calculator not available)")
     
     def _load_all_countries(self):
         """Load data from all available countries"""
@@ -45,57 +86,38 @@ class CrossCountryVisualizer:
         
         for country_key in available_countries:
             country_name = NameFormatter.format_country_name(country_key)
-            print(f"   📄 Loading {country_name}...")
             
-            try:
-                country_data = load_country_data(country_key, self.data_dir)
-                if country_data:
-                    # Convert to cross-country format
-                    standardized_data = self._standardize_country_data(country_data, country_key)
-                    if standardized_data:
-                        self.country_data[country_key] = standardized_data
-                        self.available_countries.append(country_key)
-                        print(f"   ✅ {country_name}: {len(standardized_data)} indicators")
-                    else:
-                        print(f"   ❌ {country_name}: No valid data")
+            # Load country data
+            country_data = load_country_data(country_key, self.data_dir)
+            
+            if country_data:
+                # Process data and convert to standard format
+                processed_data = {}
+                
+                for indicator, data in country_data.items():
+                    if not data.empty:
+                        # Ensure date column is datetime
+                        data['date'] = pd.to_datetime(data['date'])
+                        # Sort by date
+                        data = data.sort_values('date')
+                        processed_data[indicator] = data
+                
+                if processed_data:
+                    self.country_data[country_key] = processed_data
+                    self.available_countries.append(country_key)
+                    print(f"   ✅ {country_name}: {list(processed_data.keys())}")
                 else:
-                    print(f"   ❌ {country_name}: Failed to load")
-                    
-            except Exception as e:
-                print(f"   ❌ {country_name}: Error - {e}")
+                    print(f"   ❌ {country_name}: No valid data")
+            else:
+                print(f"   ❌ {country_name}: Could not load data")
         
-        print(f"\n📊 Successfully loaded {len(self.available_countries)} countries")
-    
-    def _standardize_country_data(self, country_data, country_key):
-        """Convert country data to cross-country standard format"""
-        standardized = {}
-        
-        for indicator, df in country_data.items():
-            try:
-                # Create standardized format for cross-country comparison
-                std_df = pd.DataFrame({
-                    'date': df['date'],
-                    'value': df['value'],
-                    'country': country_key,
-                    'indicator': indicator
-                })
-                
-                standardized[indicator] = std_df.dropna().sort_values('date')
-                
-            except Exception as e:
-                print(f"   ⚠️ Could not standardize {indicator}: {e}")
-                continue
-        
-        return standardized
+        print(f"\n🎯 Loaded {len(self.available_countries)} countries")
     
     def _identify_common_indicators(self):
-        """Find indicators available across multiple countries"""
-        if not self.country_data:
-            return
-        
-        # Count indicators across countries
+        """Identify indicators available across multiple countries"""
         indicator_counts = {}
-        for country_data in self.country_data.values():
+        
+        for country_key, country_data in self.country_data.items():
             for indicator in country_data.keys():
                 indicator_counts[indicator] = indicator_counts.get(indicator, 0) + 1
         
@@ -106,6 +128,95 @@ class CrossCountryVisualizer:
         ]
         
         print(f"📈 Common indicators: {', '.join(self.common_indicators)}")
+    
+    def _fetch_world_bank_data(self):
+        """Load World Bank data from cache, or fetch if not available"""
+        try:
+            calculator = WorldGDPCalculator()
+            
+            # Try to load from cache first
+            self.wb_data = calculator.load_world_bank_data_from_excel(self.data_dir)
+            
+            if not self.wb_data:
+                print("🌐 No cached World Bank data found")
+                # For Streamlit, we don't want to do long API calls
+                # Just continue without World Bank data
+                print("   💡 Run the main pipeline to refresh World Bank data")
+            else:
+                print(f"🏦 World Bank data loaded from cache for {len(self.wb_data)} countries")
+        except Exception as e:
+            print(f"⚠️ World Bank data error: {e}")
+            self.wb_data = {}
+    
+    def create_gdp_level_chart(self):
+        """Create GDP level comparison chart"""
+        if not self.wb_data:
+            print("❌ No World Bank GDP data available")
+            return None
+        
+        print("💰 Creating GDP Level Comparison...")
+        
+        fig = go.Figure()
+        
+        # Add GDP data for each country
+        for country_key, indicators in self.wb_data.items():
+            if 'gdp' not in indicators:
+                continue
+            
+            gdp_df = indicators['gdp']
+            country_color = ChartStyler.get_country_color(country_key)
+            country_name = NameFormatter.format_country_name(country_key)
+            
+            fig.add_trace(go.Scatter(
+                x=gdp_df['date'], 
+                y=gdp_df['value'],
+                mode='lines', 
+                name=country_name,
+                line=dict(color=country_color, width=3),
+                hovertemplate=f'<b>{country_name}</b><br>Year: %{{x}}<br>GDP: $%{{y:.2f}}T<extra></extra>'
+            ))
+        
+        # Apply styling
+        ChartStyler.apply_default_layout(fig, title="💰 GDP Levels Comparison (World Bank)")
+        fig.update_xaxes(title="Year")
+        fig.update_yaxes(title="GDP (Trillions USD)")
+        
+        return fig
+    
+    def create_gdp_per_capita_chart(self):
+        """Create GDP per capita comparison chart"""
+        if not self.wb_data:
+            print("❌ No World Bank data available")
+            return None
+        
+        print("👥 Creating GDP Per Capita Comparison...")
+        
+        fig = go.Figure()
+        
+        # Add GDP per capita data for each country
+        for country_key, indicators in self.wb_data.items():
+            if 'gdp_per_capita' not in indicators:
+                continue
+            
+            gdp_pc_df = indicators['gdp_per_capita']
+            country_color = ChartStyler.get_country_color(country_key)
+            country_name = NameFormatter.format_country_name(country_key)
+            
+            fig.add_trace(go.Scatter(
+                x=gdp_pc_df['date'], 
+                y=gdp_pc_df['value'],
+                mode='lines', 
+                name=country_name,
+                line=dict(color=country_color, width=3),
+                hovertemplate=f'<b>{country_name}</b><br>Year: %{{x}}<br>GDP per Capita: $%{{y:,.0f}}<extra></extra>'
+            ))
+        
+        # Apply styling
+        ChartStyler.apply_default_layout(fig, title="👥 GDP Per Capita Comparison (World Bank)")
+        fig.update_xaxes(title="Year")
+        fig.update_yaxes(title="GDP per Capita (USD)")
+        
+        return fig
     
     def create_overview_dashboard(self, selected_countries=None):
         """Create comprehensive overview dashboard"""
@@ -121,53 +232,64 @@ class CrossCountryVisualizer:
         
         print(f"🎨 Creating dashboard for: {[NameFormatter.format_country_name(c) for c in available_selected]}")
         
-        # Create 2x2 subplot layout
+        # Create 3x2 subplot layout
         fig = make_subplots(
-            rows=2, cols=2,
+            rows=3, cols=2,
             subplot_titles=[
+                "GDP Levels (Trillions USD)", 
+                "GDP Per Capita (USD)",
                 "GDP Growth Rates (YoY %)", 
                 "Inflation Rates (YoY %)", 
                 "Population Growth Rates (YoY %)", 
                 "Interest Rates (%)"
             ],
-            vertical_spacing=0.15,
+            vertical_spacing=0.12,
             horizontal_spacing=0.12
         )
         
-        # Add data to subplots
-        self._add_dashboard_subplot(fig, 'GDP', available_selected, 1, 1, periods=4, is_growth=True)
-        self._add_dashboard_subplot(fig, 'CPI', available_selected, 1, 2, is_inflation=True)
-        self._add_dashboard_subplot(fig, 'Population', available_selected, 2, 1, periods=1, is_growth=True)
-        self._add_dashboard_subplot(fig, 'Interest_Rate', available_selected, 2, 2, is_growth=False)
+        # Add World Bank data to subplots
+        self._add_wb_subplot(fig, available_selected, 1, 1, 'gdp')
+        self._add_wb_subplot(fig, available_selected, 1, 2, 'gdp_per_capita')
+        
+        # Add existing indicator data
+        self._add_dashboard_subplot(fig, 'GDP', available_selected, 2, 1, periods=4, is_growth=True)
+        self._add_dashboard_subplot(fig, 'CPI', available_selected, 2, 2, is_growth=True, is_inflation=True)
+        self._add_dashboard_subplot(fig, 'Population', available_selected, 3, 1, periods=1, is_growth=True)
+        self._add_dashboard_subplot(fig, 'Interest_Rate', available_selected, 3, 2, is_growth=False)
         
         # Apply styling
         country_names = [NameFormatter.format_country_name(c) for c in available_selected]
         ChartStyler.apply_default_layout(
             fig,
-            title=f"Economic Overview: {', '.join(country_names)}",
-            height=800
-        )
-        
-        # Add reference lines
-        ChartStyler.add_reference_lines(fig, [0], row=1, col=1, line_color="red")
-        ChartStyler.add_reference_lines(fig, [0, 2], row=1, col=2, line_color="red")
-        ChartStyler.add_reference_lines(fig, [0], row=2, col=1, line_color="red")
-        
-        # Configure legend
-        fig.update_layout(
-            showlegend=True,
-            legend=dict(
-                orientation="v", yanchor="top", y=1, 
-                xanchor="left", x=1.02
-            )
+            title=f"📊 Economic Overview: {', '.join(country_names)}",
+            height=1000
         )
         
         return fig
     
-    def _add_dashboard_subplot(self, fig, indicator, countries, row, col, periods=4, is_growth=True, is_inflation=False):
-        """Add data to dashboard subplot"""
+    def _add_wb_subplot(self, fig, countries, row, col, indicator_type):
+        """Add World Bank data to subplot"""
         for country_key in countries:
-            # Skip if country doesn't have this indicator
+            if country_key not in self.wb_data or indicator_type not in self.wb_data[country_key]:
+                continue
+            
+            data_df = self.wb_data[country_key][indicator_type]
+            country_color = ChartStyler.get_country_color(country_key)
+            country_name = NameFormatter.format_country_name(country_key)
+            
+            fig.add_trace(
+                go.Scatter(
+                    x=data_df['date'], y=data_df['value'],
+                    mode='lines', name=country_name,
+                    line=dict(color=country_color, width=2),
+                    showlegend=(row == 1 and col == 1),
+                    legendgroup=country_key
+                ), row=row, col=col
+            )
+    
+    def _add_dashboard_subplot(self, fig, indicator, countries, row, col, periods=None, is_growth=False, is_inflation=False):
+        """Add indicator data to subplot"""
+        for country_key in countries:
             if indicator not in self.country_data[country_key]:
                 continue
             
@@ -176,11 +298,11 @@ class CrossCountryVisualizer:
             country_name = NameFormatter.format_country_name(country_key)
             
             if is_growth:
-                # Calculate growth rates
+                # Calculate appropriate growth periods
                 if is_inflation:
                     growth_periods = AnalysisUtils.detect_inflation_periods(data, country_key)
                 else:
-                    growth_periods = periods
+                    growth_periods = get_appropriate_growth_periods_cross_country(data, indicator)
                 
                 data_with_growth = AnalysisUtils.calculate_growth_rates(data, periods=growth_periods)
                 data_clean = data_with_growth.dropna(subset=['growth_rate'])
@@ -191,7 +313,7 @@ class CrossCountryVisualizer:
                             x=data_clean['date'], y=data_clean['growth_rate'],
                             mode='lines', name=country_name,
                             line=dict(color=country_color, width=2),
-                            showlegend=(row == 1 and col == 1),
+                            showlegend=False,
                             legendgroup=country_key
                         ), row=row, col=col
                     )
@@ -245,7 +367,7 @@ class CrossCountryVisualizer:
                 if is_inflation:
                     growth_periods = AnalysisUtils.detect_inflation_periods(data, country_key)
                 else:
-                    growth_periods = periods
+                    growth_periods = get_appropriate_growth_periods_cross_country(data, indicator)
                 
                 data_with_growth = AnalysisUtils.calculate_growth_rates(data, periods=growth_periods)
                 data_clean = data_with_growth.dropna(subset=['growth_rate'])
@@ -287,6 +409,23 @@ class CrossCountryVisualizer:
             country_name = NameFormatter.format_country_name(country_key)
             country_summary = {'Country': country_name}
             
+            # Get latest World Bank GDP data
+            if country_key in self.wb_data:
+                if 'gdp' in self.wb_data[country_key]:
+                    latest_gdp = self.wb_data[country_key]['gdp']['value'].iloc[-1]
+                    country_summary['GDP (Trillions)'] = f"${latest_gdp:.2f}T"
+                else:
+                    country_summary['GDP (Trillions)'] = "N/A"
+                
+                if 'gdp_per_capita' in self.wb_data[country_key]:
+                    latest_gdp_pc = self.wb_data[country_key]['gdp_per_capita']['value'].iloc[-1]
+                    country_summary['GDP per Capita'] = f"${latest_gdp_pc:,.0f}"
+                else:
+                    country_summary['GDP per Capita'] = "N/A"
+            else:
+                country_summary['GDP (Trillions)'] = "N/A"
+                country_summary['GDP per Capita'] = "N/A"
+            
             # Get latest values for each indicator
             for indicator, label in [
                 ('GDP', 'GDP Growth'), 
@@ -299,8 +438,12 @@ class CrossCountryVisualizer:
                     
                     if not data.empty:
                         if indicator in ['GDP', 'CPI', 'Population']:
-                            # Calculate growth rate
-                            periods = AnalysisUtils.detect_inflation_periods(data, country_key) if indicator == 'CPI' else (4 if indicator == 'GDP' else 1)
+                            # Calculate growth rate with frequency detection
+                            if indicator == 'CPI':
+                                periods = AnalysisUtils.detect_inflation_periods(data, country_key)
+                            else:
+                                periods = get_appropriate_growth_periods_cross_country(data, indicator)
+                            
                             growth_data = AnalysisUtils.calculate_growth_rates(data, periods=periods)
                             
                             if not growth_data.empty:
@@ -329,16 +472,18 @@ class CrossCountryVisualizer:
         while True:
             print(f"\n🎯 CROSS-COUNTRY ANALYSIS OPTIONS")
             print("=" * 50)
-            print("1. Overview Dashboard (all indicators)")
-            print("2. GDP Growth Comparison")
-            print("3. Inflation Comparison")
-            print("4. Interest Rates Comparison")
-            print("5. Population Growth Comparison")
-            print("6. Property Price Growth Comparison")
-            print("7. Summary Table")
-            print("8. Exit")
+            print("1. Overview Dashboard (enhanced with GDP charts)")
+            print("2. GDP Level Comparison (World Bank)")
+            print("3. GDP Per Capita Comparison (World Bank)")
+            print("4. GDP Growth Comparison")
+            print("5. Inflation Comparison")
+            print("6. Interest Rates Comparison")
+            print("7. Population Growth Comparison")
+            print("8. Property Price Growth Comparison")
+            print("9. Summary Table")
+            print("10. Exit")
             
-            choice = input(f"\nSelect option (1-8): ").strip()
+            choice = input(f"\nSelect option (1-10): ").strip()
             
             try:
                 if choice == '1':
@@ -348,9 +493,23 @@ class CrossCountryVisualizer:
                     else:
                         print("❌ Could not create overview")
                 
-                elif choice in ['2', '3', '4', '5', '6']:
+                elif choice == '2':
+                    fig = self.create_gdp_level_chart()
+                    if fig:
+                        ChartDisplayer.show_chart(fig, "cross_country_gdp_levels")
+                    else:
+                        print("❌ Could not create GDP level chart")
+                
+                elif choice == '3':
+                    fig = self.create_gdp_per_capita_chart()
+                    if fig:
+                        ChartDisplayer.show_chart(fig, "cross_country_gdp_per_capita")
+                    else:
+                        print("❌ Could not create GDP per capita chart")
+                
+                elif choice in ['4', '5', '6', '7', '8']:
                     indicators = ['GDP', 'CPI', 'Interest_Rate', 'Population', 'Property_Price']
-                    indicator = indicators[int(choice) - 2]
+                    indicator = indicators[int(choice) - 4]
                     
                     fig = self.create_individual_chart(indicator)
                     if fig:
@@ -358,7 +517,7 @@ class CrossCountryVisualizer:
                     else:
                         print(f"❌ Could not create {indicator} chart")
                 
-                elif choice == '7':
+                elif choice == '9':
                     summary_df = self.create_summary_table()
                     if summary_df is not None:
                         print(f"\n📊 CROSS-COUNTRY SUMMARY")
@@ -368,12 +527,12 @@ class CrossCountryVisualizer:
                     else:
                         print("❌ No summary data available")
                 
-                elif choice == '8':
+                elif choice == '10':
                     print("👋 Goodbye!")
                     break
                 
                 else:
-                    print("❌ Invalid choice. Please select 1-8.")
+                    print("❌ Invalid choice. Please select 1-10.")
                     
             except Exception as e:
                 print(f"❌ Error: {e}")
@@ -387,6 +546,10 @@ class CrossCountryVisualizer:
         print(f"\n🎯 Ready for cross-country analysis:")
         print(f"   Countries: {', '.join([NameFormatter.format_country_name(c) for c in self.available_countries])}")
         print(f"   Common indicators: {', '.join(self.common_indicators)}")
+        
+        if self.wb_data:
+            print(f"   World Bank GDP data: {len([c for c in self.wb_data if 'gdp' in self.wb_data[c]])} countries")
+            print(f"   World Bank GDP per capita data: {len([c for c in self.wb_data if 'gdp_per_capita' in self.wb_data[c]])} countries")
         
         self.interactive_menu()
 
