@@ -527,64 +527,128 @@ class NewsDataVisualizer:
             return None
 
     def create_regional_sentiment_chart(self):
-        """Create regional sentiment analysis chart with individual countries"""
-        regional_data = []
+        """FIXED: Calculate regional sentiment correctly with all improvements"""
+        regional_sentiment_data = {}  # {region: [sentiment_scores]}
+        
+        print(f"\n📊 FIXED REGIONAL SENTIMENT PROCESSING:")
         
         for source, df in self.news_data.items():
+            display_name = self.get_news_source_display_name(source)
+            print(f"\n🔍 Processing {display_name}:")
+            print(f"   Columns: {list(df.columns)}")
+            
             if 'Region' in df.columns and 'Sentiment Score' in df.columns:
                 try:
-                    # Expand regions before processing
-                    df_expanded = self.expand_regions_for_analysis(df)
-                    
-                    # Clean and process data
-                    df_clean = df_expanded.copy()
+                    # Clean data
+                    df_clean = df.copy()
                     df_clean['Sentiment Score'] = pd.to_numeric(df_clean['Sentiment Score'], errors='coerce')
                     df_clean = df_clean.dropna(subset=['Region', 'Sentiment Score'])
                     
-                    if len(df_clean) > 0:
-                        regional_sentiment = df_clean.groupby('Region')['Sentiment Score'].agg(['mean', 'count']).reset_index()
-                        regional_sentiment['Source'] = self.get_news_source_display_name(source)
+                    print(f"   Articles with valid sentiment: {len(df_clean)}")
+                    
+                    # FIXED: Process each article directly - NO expansion DataFrame
+                    for idx, row in df_clean.iterrows():
+                        region_str = str(row['Region']).strip()
+                        sentiment_score = row['Sentiment Score']
                         
-                        for _, row in regional_sentiment.iterrows():
-                            regional_data.append({
-                                'Region': row['Region'],
-                                'Avg_Sentiment': row['mean'],
-                                'Article_Count': row['count'],
-                                'Source': row['Source']
-                            })
+                        if region_str and region_str != 'nan':
+                            # Split comma-separated regions
+                            individual_regions = [r.strip() for r in region_str.split(',')]
+                            
+                            # Add this article's sentiment to each region it mentions
+                            for region in individual_regions:
+                                if region:
+                                    if region not in regional_sentiment_data:
+                                        regional_sentiment_data[region] = []
+                                    regional_sentiment_data[region].append(sentiment_score)
+                    
                 except Exception as e:
-                    print(f"❌ Error processing regional sentiment for {source}: {e}")
+                    print(f"❌ Error processing {source}: {e}")
                     continue
+            else:
+                print(f"   ⚠️ Missing required columns")
         
-        if regional_data:
+        if regional_sentiment_data:
             try:
-                regional_df = pd.DataFrame(regional_data)
+                regional_results = []
                 
-                # Aggregate across sources for overall regional sentiment
-                overall_regional = regional_df.groupby('Region').agg({
-                    'Avg_Sentiment': 'mean',
-                    'Article_Count': 'sum'
-                }).reset_index()
+                print(f"\n📊 FINAL REGIONAL CALCULATIONS:")
+                for region, sentiment_scores in regional_sentiment_data.items():
+                    avg_sentiment = sum(sentiment_scores) / len(sentiment_scores)
+                    article_count = len(sentiment_scores)
+                    
+                    regional_results.append({
+                        'Region': region,
+                        'Avg_Sentiment': avg_sentiment,
+                        'Article_Count': article_count
+                    })
                 
-                fig = px.bar(overall_regional, x='Region', y='Avg_Sentiment',
+                    print(f"🌍 {region}: {article_count} articles, avg: {avg_sentiment:.2f}")
+                    
+                    # Show detailed scores for Vietnam and Indonesia
+                    if region.lower() in ['vietnam', 'indonesia']:
+                        print(f"   📊 Individual scores: {sentiment_scores}")
+                
+                regional_df = pd.DataFrame(regional_results)
+
+                # Fix: Order regions according to macro sources
+                macro_region_order = [
+                    'Singapore', 'United States', 'Euro Area', 'United Kingdom', 
+                    'China', 'Japan', 'India', 'Indonesia', 'Malaysia', 'Thailand', 'Vietnam'
+                ]
+                
+                def get_region_order(region_name):
+                    try:
+                        return macro_region_order.index(region_name)
+                    except ValueError:
+                        return 999  # Put unknown regions at the end
+                
+                regional_df['Order'] = regional_df['Region'].apply(get_region_order)
+                regional_df = regional_df.sort_values('Order').drop('Order', axis=1).reset_index(drop=True)
+                
+                print(f"📊 Regions ordered: {regional_df['Region'].tolist()}")
+                
+                # Create the bar chart
+                fig = px.bar(regional_df, x='Region', y='Avg_Sentiment',
                             title="🌍 Average Sentiment Score by Region",
                             color='Avg_Sentiment',
                             color_continuous_scale=['red', 'yellow', 'green'],
                             color_continuous_midpoint=0)
                 
-                # Add article count as hover info
                 fig.update_traces(
                     hovertemplate="<b>%{x}</b><br>Avg Sentiment: %{y:.2f}<br>Articles: %{customdata}<extra></extra>",
-                    customdata=overall_regional['Article_Count']
+                    customdata=regional_df['Article_Count']
                 )
                 
+                # FIXED: Dynamic zoom for better visibility
+                min_sentiment = min(regional_df['Avg_Sentiment'])
+                max_sentiment = max(regional_df['Avg_Sentiment'])
+                
+                # Add padding for better visibility (20% on each side)
+                range_padding = max(abs(min_sentiment), abs(max_sentiment)) * 0.2
+                y_min = max(-1, min_sentiment - range_padding)  # Don't go below -1
+                y_max = min(1, max_sentiment + range_padding)   # Don't go above 1
+                
+                # Ensure minimum visible range for small values
+                if (y_max - y_min) < 0.4:  # If range is too small, expand it
+                    center = (y_max + y_min) / 2
+                    y_min = max(-1, center - 0.2)
+                    y_max = min(1, center + 0.2)
+                
+                print(f"📊 Y-axis range for better visibility: {y_min:.2f} to {y_max:.2f}")
+                
+                # Update layout
                 fig.update_layout(height=400)
-                fig.update_yaxes(title="Average Sentiment Score", range=[-1, 1])
+                fig.update_yaxes(title="Average Sentiment Score", range=[y_min, y_max])
+                fig.update_xaxes(tickangle=-45)
                 fig.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.7)
                 
                 return fig
+                
             except Exception as e:
-                print(f"❌ Error creating regional sentiment chart: {e}")
+                print(f"❌ Error creating chart: {e}")
+                import traceback
+                traceback.print_exc()
                 return None
         else:
             print("❌ No regional sentiment data available")
