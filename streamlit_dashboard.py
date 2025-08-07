@@ -693,8 +693,7 @@ def create_gdp_hero_banner(data_sources):
         
         import streamlit.components.v1 as components
         
-        html_code = 
-        """
+        html_code = f"""
         <style>
         @keyframes pulse {{
             0% {{ transform: translate(-50%, -50%) scale(1); opacity: 1; }}
