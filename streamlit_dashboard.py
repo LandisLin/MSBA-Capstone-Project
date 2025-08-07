@@ -10,6 +10,9 @@ import plotly.graph_objects as go
 from plotly.subplots import make_subplots
 from pathlib import Path
 import warnings
+import hashlib
+import os
+import glob
 from datetime import datetime
 
 warnings.filterwarnings('ignore')
@@ -420,6 +423,156 @@ def setup_css():
     </style>
     """, unsafe_allow_html=True)
 
+# ============================================================================
+# Cache
+# ============================================================================
+# 1. Add file hash-based caching for automatic cache invalidation
+def get_file_hash(file_path):
+    """Get hash of file for cache invalidation"""
+    try:
+        if not file_path or not os.path.exists(file_path):
+            return None
+        return hashlib.md5(Path(file_path).read_bytes()).hexdigest()
+    except:
+        return None
+
+# 2. Enhanced country data caching with file hash
+@st.cache_data
+def load_country_data_cached(country_key, file_hash=None):
+    """Load country data with caching based on file hash"""
+    print(f"🔄 Loading {country_key} data (cache miss)")
+    from visualization_config import load_country_data
+    return load_country_data(country_key)
+
+def get_country_data_with_caching(country_key, country_file):
+    """Get country data with intelligent caching"""
+    file_hash = get_file_hash(country_file) if country_file else None
+    return load_country_data_cached(country_key, file_hash)
+
+# 3. Enhanced market data caching
+@st.cache_data
+def load_market_data_cached(file_hash=None):
+    """Load market data with caching based on file hash"""
+    print(f"🔄 Loading market data (cache miss)")
+    from market_indices_visualizer import MarketIndicesVisualizer
+    return MarketIndicesVisualizer()
+
+def get_market_visualizer_with_caching():
+    """Get market visualizer with intelligent caching"""
+    from visualization_config import DataLoader, MARKET_INDICES_PATTERN
+    latest_file = DataLoader.find_latest_file(MARKET_INDICES_PATTERN)
+    file_hash = get_file_hash(latest_file) if latest_file else None
+    return load_market_data_cached(file_hash)
+
+# 4. Enhanced news data caching
+@st.cache_data
+def load_news_data_cached(file_hash=None):
+    """Load news data with caching based on file hash"""
+    print(f"🔄 Loading news data (cache miss)")
+    from news_visualizer import NewsDataVisualizer
+    return NewsDataVisualizer()
+
+def get_news_visualizer_with_caching():
+    """Get news visualizer with intelligent caching"""
+    news_file = "./news_analysis_output/master_news_analysis.xlsx"
+    file_hash = get_file_hash(news_file) if os.path.exists(news_file) else None
+    return load_news_data_cached(file_hash)
+
+# 5. Cache expensive chart generation
+@st.cache_data
+def create_country_overview_chart_cached(country_key, data_hash=None):
+    """Create country overview chart with caching"""
+    print(f"🔄 Creating overview chart for {country_key} (cache miss)")
+    # Load data fresh
+    from visualization_config import load_country_data
+    country_data = load_country_data(country_key)
+    if not country_data:
+        return None
+    return create_country_overview_chart(country_data, country_key)
+
+@st.cache_data
+def create_market_overview_cached(selected_indices, data_hash=None):
+    """Create market overview with caching"""
+    print(f"🔄 Creating market overview (cache miss)")
+    market_viz = get_market_visualizer_with_caching()
+    return market_viz.create_market_overview(selected_indices)
+
+# 6. Cache chart data preprocessing
+@st.cache_data
+def get_chart_data_cached(country_key, indicator, file_hash=None):
+    """Cache processed chart data"""
+    country_data = get_country_data_with_caching(country_key, None)
+    if country_data and indicator in country_data:
+        return country_data[indicator]
+    return None
+
+# ============================================================================
+# 🎯 MEMORY OPTIMIZATION TECHNIQUES:
+
+# 7. Session state caching for user selections
+def init_session_cache():
+    """Initialize session-level caching for user preferences"""
+    if 'chart_cache' not in st.session_state:
+        st.session_state.chart_cache = {}
+    if 'data_cache' not in st.session_state:
+        st.session_state.data_cache = {}
+
+def get_from_session_cache(key):
+    """Get data from session cache"""
+    return st.session_state.data_cache.get(key)
+
+def set_session_cache(key, value):
+    """Store data in session cache"""
+    st.session_state.data_cache[key] = value
+
+# 8. Lazy loading for expensive operations
+@st.cache_data
+def get_expensive_analysis_cached(region, topic, indicator, data_hash=None):
+    """Cache expensive analysis operations"""
+    print(f"🔄 Running expensive analysis (cache miss)")
+    # Expensive operations here
+    return analysis_results
+
+# 9. Cache clearing utilities
+def clear_all_caches():
+    """Clear all Streamlit caches"""
+    st.cache_data.clear()
+    if 'data_cache' in st.session_state:
+        st.session_state.data_cache.clear()
+    if 'chart_cache' in st.session_state:
+        st.session_state.chart_cache.clear()
+    st.success("🗑️ All caches cleared!")
+
+# 10. Add cache status display
+def show_cache_status():
+    """Show cache status in sidebar"""
+    with st.sidebar:
+        st.markdown("### 🚀 Cache Status")
+        
+        # Check if data is cached
+        cache_info = []
+        
+        try:
+            # Check country data cache
+            countries_cached = len([k for k in st.session_state.get('data_cache', {}).keys() if 'country' in k])
+            cache_info.append(f"Countries: {countries_cached} cached")
+        except:
+            cache_info.append("Countries: Not cached")
+        
+        try:
+            # Check market data cache
+            market_cached = 'market_data' in st.session_state.get('data_cache', {})
+            cache_info.append(f"Market: {'✅ Cached' if market_cached else '❌ Not cached'}")
+        except:
+            cache_info.append("Market: Not cached")
+        
+        for info in cache_info:
+            st.text(info)
+        
+        if st.button("🗑️ Clear Cache"):
+            clear_all_caches()
+
+# ============================================================================
 from worldbank_data import WorldGDPCalculator
 def get_gdp_coverage_metrics():
     """Get GDP coverage metrics with detailed debugging"""
@@ -558,7 +711,7 @@ def create_gdp_hero_banner(data_sources):
                     <h2 style="margin: 0 0 1rem 0; font-size: 2rem;">of World GDP Coverage</h2>
                     <p style="margin: 0.5rem 0; font-size: 1.2rem; font-weight: bold;">{total_gdp} across {countries} major economies</p>
                     <p style="margin: 0.5rem 0; font-size: 1rem;">Latest global annual GDP data: {year}</p>
-                    <p style="margin: 1rem 0 0 0; font-size: 1rem; font-style: italic; opacity: 0.9;">Comprehensive economic data from the world's largest markets <br /> (Quarter-level data is included in Country Analysis)</p>
+                    <p style="margin: 1rem 0 0 0; font-size: 1rem; font-style: italic; opacity: 0.9;">Comprehensive economic data from the world's largest markets <br /> (Quarter-level data is included in Region Analysis)</p>
                 </div>
                 
                 <!-- Enhanced Center Donut Chart -->
@@ -728,9 +881,10 @@ def create_enhanced_sidebar_navigation(data_sources):
     # Define page options
     page_configs = [
         {'key': 'overview', 'icon': '🏠', 'title': 'Overview', 'description': 'Dashboard home'},
-        {'key': 'country', 'icon': '🌍', 'title': 'Country Analysis', 'description': 'Economic indicators by country'},
-        {'key': 'cross_country', 'icon': '🔗', 'title': 'Cross-Country', 'description': 'Compare across countries'},
-        {'key': 'market_indices', 'icon': '📈', 'title': 'Market Indices', 'description': 'Global market analysis'}
+        {'key': 'country', 'icon': '🌍', 'title': 'Region Analysis', 'description': 'Economic indicators by region'},
+        {'key': 'cross_country', 'icon': '🔗', 'title': 'Cross-Region', 'description': 'Compare across regions'},
+        {'key': 'market_indices', 'icon': '📈', 'title': 'Market Indices', 'description': 'Global market analysis'},
+        {'key': 'news_analysis', 'icon': '📰', 'title': 'News Analysis', 'description': 'Economic news topic and sentiment'},
     ]
     
     # Create navigation buttons with even spacing
@@ -840,6 +994,161 @@ def create_market_ticker(market_viz):
                 </div>
                 """, unsafe_allow_html=True)
 
+def get_sentiment_emoji(sentiment_score, sentiment_label):
+    """Get emoji based on sentiment score and label"""
+    try:
+        score = float(sentiment_score)
+        
+        if score <= -0.7:
+            return "😭"  # Very negative - crying
+        elif score <= -0.4:
+            return "😟"  # Negative - sad
+        elif score < -0.1:
+            return "🙁"  # Slightly negative - slightly sad
+        elif score <= 0.1:
+            return "😐"  # Neutral
+        elif score < 0.4:
+            return "🙂"  # Slightly positive - slightly happy
+        elif score < 0.7:
+            return "😊"  # Positive - happy
+        else:
+            return "😄"  # Very positive - very happy
+    except:
+        # Fallback based on label if score fails
+        label_lower = str(sentiment_label).lower()
+        if 'very negative' in label_lower:
+            return "😭"
+        elif 'negative' in label_lower:
+            return "😟"
+        elif 'positive' in label_lower:
+            return "😊"
+        else:
+            return "😐"
+
+def extract_topics_from_analysis(topic_analysis):
+    """Extract clean topics from topic analysis text"""
+    try:
+        topic_text = str(topic_analysis)
+        if 'Topics:' in topic_text:
+            # Extract topics after "Topics:"
+            topics_part = topic_text.split('Topics:')[1].split('Indicators:')[0] if 'Indicators:' in topic_text else topic_text.split('Topics:')[1]
+            
+            # Remove asterisks and clean formatting
+            topics_part = topics_part.replace('*', '').strip()
+            
+            topics = [topic.strip() for topic in topics_part.split(',')]
+            # Return first 5 topics to avoid clutter
+            clean_topics = [t.replace('**', '').replace('*', '').strip() for t in topics if t and len(t.strip()) > 2][:5]
+            clean_topics = [t for t in clean_topics if t]  # Remove empty strings
+            return ", ".join(clean_topics)
+    except:
+        pass
+    return "Not specified"
+
+def extract_indicators_from_analysis(topic_analysis):
+    """Extract indicators from topic analysis text"""
+    try:
+        topic_text = str(topic_analysis)
+        if 'Indicators:' in topic_text:
+            # Extract indicators after "Indicators:"
+            indicators_part = topic_text.split('Indicators:')[1].strip()
+            
+            # Remove asterisks and clean formatting
+            indicators_part = indicators_part.replace('*', '').strip()
+            
+            indicators = [indicator.strip() for indicator in indicators_part.split(',')]
+
+            clean_indicators = [i.replace('**', '').replace('*', '').strip() for i in indicators if i and len(i.strip()) > 1]
+            clean_indicators = [i for i in clean_indicators if i]  # Remove empty strings
+            return ", ".join(clean_indicators)
+    except:
+        pass
+    return "Not specified"
+
+def create_sentiment_summary_display(news_viz, selected_region, selected_topic, selected_indicator=None):
+    """Create sentiment summary display section"""
+    
+    # Get filtered sentiment summary
+    summary = news_viz.get_filtered_sentiment_summary(selected_region, selected_topic, selected_indicator)
+
+    if summary:
+        # Create an attractive summary card
+        sentiment_emoji = get_sentiment_emoji(summary['avg_sentiment_score'], summary['avg_sentiment_label'])
+        
+        # Determine card color based on sentiment - 7 tiers matching emoji classification
+        score = summary['avg_sentiment_score']
+
+        if score <= -0.7:
+            # 😭 Very negative - dark red
+            card_color = "#e8b4b8"
+            border_color = "#721c24"
+        elif score <= -0.4:
+            # 😟 Negative - medium red
+            card_color = "#f8d7da"
+            border_color = "#dc3545"
+        elif score < -0.1:
+            # 🙁 Slightly negative - light red
+            card_color = "#fdeced"
+            border_color = "#f5a6a6"
+        elif score <= 0.1:
+            # 😐 Neutral - yellow/beige
+            card_color = "#fff8e1"
+            border_color = "#ffc107"
+        elif score < 0.4:
+            # 🙂 Slightly positive - light green
+            card_color = "#f1f8e9"
+            border_color = "#8bc34a"
+        elif score < 0.7:
+            # 😊 Positive - medium green
+            card_color = "#d4edda"
+            border_color = "#28a745"
+        else:
+            # 😄 Very positive - dark green
+            card_color = "#c8e6c9"
+            border_color = "#1b5e20"
+        
+        region_display = selected_region if selected_region and selected_region != "All Regions" else "All Regions"
+        topic_display = selected_topic if selected_topic and selected_topic != "All Topics" else "All Topics"
+        filter_display = selected_indicator if selected_indicator and selected_indicator != "All Indicators" else "All Indicators"
+
+        filter_text = f"Region: {region_display} | Topic: {topic_display} | Indicator: {filter_display}"
+
+        html_content = f'''
+        <div style="background-color: {card_color}; border-left: 10px solid {border_color}; padding: 1rem; border-radius: 10px; margin: 1rem 0; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+            <div style="display: flex; align-items: center; justify-content: center; margin-bottom: 0.8rem;">
+                <span style="font-size: 2rem; margin-right: 1rem;">{sentiment_emoji}</span>
+                <div style="text-align: center;">
+                    <p style="margin: 0; color: #666; font-size: 0.9rem;">{filter_text}</p>
+                </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 1.5rem;">
+                <div style="text-align: center;">
+                    <div style="font-size: 2rem; font-weight: bold; color: #333;">{summary['article_count']}</div>
+                    <div style="font-size: 0.9rem; color: #666;">Articles Found</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 2rem; font-weight: bold; color: {border_color};">{summary['avg_sentiment_score']}</div>
+                    <div style="font-size: 0.9rem; color: #666;">Avg Score</div>
+                </div>
+                <div style="text-align: center;">
+                    <div style="font-size: 1.2rem; font-weight: bold; color: #333;">{summary['avg_sentiment_label']}</div>
+                    <div style="font-size: 0.9rem; color: #666;">Overall Sentiment</div>
+                </div>
+            </div>
+            <div style="margin-top: 0.8rem; font-size: 0.8rem; color: #666; text-align: center;">
+                Score Range: {summary['score_distribution']['min']} to {summary['score_distribution']['max']} (σ = {summary['score_distribution']['std']})
+            </div>
+        </div>
+        '''
+        
+        # CRITICAL: Make sure unsafe_allow_html=True is included
+        st.markdown(html_content, unsafe_allow_html=True)
+        
+        return True
+    else:
+        st.info("🔍 **No articles found** matching your criteria. Try different filters.")
+        return False
+
 def create_overview_page(data_sources):
     """Create main overview page with fixed navigation"""
     st.markdown('<h1 class="main-header">Economic Data Dashboard</h1>', unsafe_allow_html=True)
@@ -899,7 +1208,7 @@ def create_overview_page(data_sources):
     col1, col2 = st.columns(2)
     
     with col1:
-        st.subheader("🌍 Countries")
+        st.subheader("🌍 Regions")
         for country in data_sources['countries']:
             country_name = NameFormatter.format_country_name(country)
             # FIXED: Properly navigate to country page AND set selected country
@@ -909,13 +1218,41 @@ def create_overview_page(data_sources):
                 st.rerun()
     
     with col2:
-        st.subheader("📈 Analysis Tools")
-        if st.button("Cross-Country Comparison", use_container_width=True):
-            st.session_state.selected_page = "cross_country"
-            st.rerun()
-        if st.button("Market Indices Analysis", use_container_width=True):
-            st.session_state.selected_page = "market_indices"
-            st.rerun()
+        st.subheader("📈 Market Indices")
+        if data_sources['market_available']:
+            try:
+                # Load market data to get available indices
+                from market_indices_visualizer import MarketIndicesVisualizer
+                market_viz = MarketIndicesVisualizer()
+                available_indices = market_viz.available_indices
+                
+                # Display each market index as a button
+                for index_name in available_indices:
+                    # Format display name (same as used in market page)
+                    display_name = NameFormatter.format_display_name(index_name)
+                    
+                    # Create button that navigates to market page with specific index
+                    if st.button(display_name, key=f"market_{index_name}", use_container_width=True):
+                        st.session_state.selected_page = "market_indices"
+                        # Set session state to remember which index was selected
+                        st.session_state.selected_market_index = index_name
+                        # Set to Individual Index view and Price & Volume chart
+                        st.session_state.market_viz_type = "Individual Index"
+                        st.session_state.market_chart_type = "Price & Volume"
+                        st.rerun()
+                        
+            except Exception as e:
+                st.error(f"Could not load market indices: {e}")
+                # Fallback - show analysis tools if market data fails
+                if st.button("Cross-Country Comparison", use_container_width=True):
+                    st.session_state.selected_page = "cross_country"
+                    st.rerun()
+        else:
+            # Fallback if no market data available - show analysis tools
+            st.warning("Market data not available")
+            if st.button("Cross-Country Comparison", use_container_width=True):
+                st.session_state.selected_page = "cross_country"
+                st.rerun()
 
 def create_country_overview_chart(data, country_key):
     """Create country overview chart using shared utilities"""
@@ -1054,7 +1391,7 @@ def create_country_page(data_sources):
         
         with st.spinner(f"Loading {NameFormatter.format_country_name(selected_country)} data..."):
             # Load country data
-            country_data = load_country_data(selected_country)
+            country_data = get_country_data_with_caching(selected_country, country_file)
             
             if not country_data:
                 st.error(f"Failed to load data for {selected_country}")
@@ -1092,7 +1429,10 @@ def create_country_page(data_sources):
                           unsafe_allow_html=True)
                 
                 try:
-                    fig = create_country_overview_chart(country_data, selected_country)
+                    # Create hash from country data for cache invalidation
+                    data_str = str(sorted(country_data.keys())) + str(len(country_data))
+                    data_hash = hashlib.md5(data_str.encode()).hexdigest()[:8]
+                    fig = create_country_overview_chart_cached(selected_country, data_hash)
                     if fig:
                         st.plotly_chart(fig, use_container_width=True)
                     else:
@@ -1212,7 +1552,7 @@ def create_market_page(data_sources):
     
     try:
         from market_indices_visualizer import MarketIndicesVisualizer
-        market_viz = MarketIndicesVisualizer()
+        market_viz = get_market_visualizer_with_caching()
         
         # Show extraction time
         latest_file = DataLoader.find_latest_file(MARKET_INDICES_PATTERN)
@@ -1234,8 +1574,18 @@ def create_market_page(data_sources):
         except Exception as e:
             st.error(f"Error creating summary: {e}")
         
+        # UPDATED: Handle navigation from overview page
+        # Check if we came from overview page with a specific index selected
+        if 'selected_market_index' in st.session_state and st.session_state.selected_market_index:
+            # Set default visualization type to Individual Index
+            default_viz_type = st.session_state.get('market_viz_type', 'Individual Index')
+            viz_options = ["Market Overview", "Individual Index", "Correlation Analysis", "Performance Summary"]
+            default_index = viz_options.index(default_viz_type) if default_viz_type in viz_options else 1
+        else:
+            default_index = 0
+
         # Visualization options
-        viz_type = st.radio("Choose type:", ["Market Overview", "Individual Index", "Correlation Analysis", "Performance Summary"], horizontal=True)
+        viz_type = st.radio("Choose type:", ["Market Overview", "Individual Index", "Correlation Analysis", "Performance Summary"], horizontal=True, index=default_index)
         
         if viz_type == "Market Overview":
             st.markdown('<h3 class="centered-title">📊 Market Indices Overview</h3>', unsafe_allow_html=True)
@@ -1267,7 +1617,27 @@ def create_market_page(data_sources):
         elif viz_type == "Individual Index":
             st.subheader("📈 Individual Index Analysis")
             
-            selected_index_display = st.selectbox("Select Index", [NameFormatter.format_display_name(idx) for idx in market_viz.available_indices])
+            # UPDATED: Check if we have a pre-selected index from overview
+            if 'selected_market_index' in st.session_state and st.session_state.selected_market_index:
+                # Find the display name for the pre-selected index
+                selected_internal_default = st.session_state.selected_market_index
+                selected_display_default = NameFormatter.format_display_name(selected_internal_default)
+                
+                # Get the index for the selectbox
+                display_options = [NameFormatter.format_display_name(idx) for idx in market_viz.available_indices]
+                try:
+                    default_idx = display_options.index(selected_display_default)
+                except ValueError:
+                    default_idx = 0
+                    
+                # Clear the session state after using it
+                st.session_state.selected_market_index = None
+            else:
+                default_idx = 0
+            
+            selected_index_display = st.selectbox("Select Index", 
+                                                [NameFormatter.format_display_name(idx) for idx in market_viz.available_indices],
+                                                index=default_idx)
             
             # Find internal name
             selected_index = None
@@ -1277,8 +1647,30 @@ def create_market_page(data_sources):
                     break
             
             if selected_index:
-                chart_type = st.radio("Chart Type:", ["Price Chart", "Returns Chart"], horizontal=True)
-                chart_type_param = "price" if chart_type == "Price Chart" else "returns"
+                # UPDATED: Check for pre-selected chart type from overview
+                if 'market_chart_type' in st.session_state and st.session_state.market_chart_type:
+                    default_chart_type = st.session_state.market_chart_type
+                    # Clear the session state after using it
+                    st.session_state.market_chart_type = None
+                else:
+                    default_chart_type = "Price Chart"
+                
+                chart_options = ["Price Chart", "Returns Chart", "Volume Chart", "Price & Volume"]
+                try:
+                    chart_default_idx = chart_options.index(default_chart_type)
+                except ValueError:
+                    chart_default_idx = 0
+                
+                chart_type = st.radio("Chart Type:", chart_options, horizontal=True, index=chart_default_idx)
+                
+                # Map to internal chart types
+                chart_type_mapping = {
+                    "Price Chart": "price",
+                    "Returns Chart": "returns", 
+                    "Volume Chart": "volume",
+                    "Price & Volume": "price_volume"
+                }
+                chart_type_param = chart_type_mapping[chart_type]
                 
                 with st.spinner(f"Creating {chart_type.lower()}..."):
                     try:
@@ -1350,8 +1742,357 @@ def create_market_page(data_sources):
     except ImportError:
         st.error("Market indices visualizer not available")
 
+def create_news_analysis_page():
+    """Create News Analysis page with all improvements"""
+    st.header("📰 News Analysis Dashboard")
+    
+    try:
+        from news_visualizer import NewsDataVisualizer
+        
+        # Initialize with automatic file detection
+        news_viz = get_news_visualizer_with_caching()
+        
+        # Check if file was found and data was loaded
+        if not news_viz.news_file_path:
+            st.error("No news analysis files found in ./news_analysis_output folder. Please ensure the agentic analysis has been run.")
+            # st.info("Expected file pattern: ./news_analysis_output/agentic_analysis_*.xlsx")
+            st.info("Expected file: ./news_analysis_output/master_news_analysis.xlsx")
+            return
+            
+        if not news_viz.news_data:
+            st.error("News analysis file found but no data could be loaded. Please check the file format.")
+            st.info(f"Found file: {news_viz.news_file_path}")
+            return
+        
+        # Summary metrics (3 columns)
+        metrics = news_viz.get_summary_metrics()
+        if metrics:
+            col1, col2, col3 = st.columns(3)
+            
+            with col1:
+                st.metric("📰 Total Articles", metrics['total_articles'])
+            with col2:
+                st.metric("📊 News Sources", metrics['sources_count'])
+            with col3:
+                st.metric("📅 Latest Update", metrics['latest_update'])
+        
+        st.markdown("---")
+
+        st.subheader("📊 Article Distribution Analysis")
+        col1, col2 = st.columns(2)
+
+        with col1:
+            country_dist_fig = news_viz.create_country_distribution_chart()
+            if country_dist_fig:
+                st.plotly_chart(country_dist_fig, use_container_width=True)
+            else:
+                st.info("No country distribution data available")
+
+        with col2:
+            source_dist_fig = news_viz.create_source_distribution_chart()
+            if source_dist_fig:
+                st.plotly_chart(source_dist_fig, use_container_width=True)
+            else:
+                st.info("No source distribution data available")
+
+        # Charts section
+        st.markdown("---")
+        
+        st.subheader("😊 Sentiment/Topic Analysis")
+        # Chart tabs
+        chart_tab1, chart_tab2, chart_tab3, chart_tab4 = st.tabs([
+            "Regional Sentiment", "Sentiment by Source", "Sentiment Timeline", "Topic Analysis"
+        ])
+        
+        with chart_tab1:
+            regional_sentiment_fig = news_viz.create_regional_sentiment_chart()
+            if regional_sentiment_fig:
+                st.plotly_chart(regional_sentiment_fig, use_container_width=True)
+                st.info("📊 **Chart shows average sentiment score by region** (-1=Very Negative, 0=Neutral, +1=Very Positive)")
+            else:
+                st.info("No regional sentiment data available for visualization")
+        
+        with chart_tab2:
+            sentiment_fig = news_viz.create_sentiment_chart()
+            if sentiment_fig:
+                st.plotly_chart(sentiment_fig, use_container_width=True)
+                st.info("📊 **Each source shows percentage distribution** to better compare sentiment patterns")
+            else:
+                st.info("No sentiment data available for visualization")
+        
+        with chart_tab3:
+            # Add region, topic, and indicator selectors for timeline
+            col1, col2, col3 = st.columns(3)
+    
+            with col1:
+                available_regions = news_viz.get_all_regions()
+                selected_timeline_region = st.selectbox(
+                    "Select Region for Timeline",
+                    options=["All Regions"] + available_regions,
+                    index=0,
+                    key="timeline_region_selector"
+                )
+            
+            with col2:
+                available_topics = news_viz.get_all_topics()
+                selected_timeline_topic = st.selectbox(
+                    "Select Topic for Timeline",
+                    options=["All Topics"] + available_topics,
+                    index=0,
+                    key="timeline_topic_selector"
+                )
+            
+            with col3:
+                available_indicators = news_viz.get_all_indicators()  # New method needed
+                selected_timeline_indicator = st.selectbox(
+                    "Select Indicator for Timeline",
+                    options=["All Indicators"] + available_indicators,
+                    index=0,
+                    key="timeline_indicator_selector"
+                )
+
+            timeline_region = None if selected_timeline_region == "All Regions" else selected_timeline_region
+            timeline_topic = None if selected_timeline_topic == "All Topics" else selected_timeline_topic
+            timeline_indicator = None if selected_timeline_indicator == "All Indicators" else selected_timeline_indicator
+    
+            st.markdown("##### 📊 Sentiment Summary by Region, Topic, and Indicator")
+            has_data = create_sentiment_summary_display(news_viz, timeline_region, timeline_topic, timeline_indicator)
+            st.markdown("") 
+            st.markdown("##### 📈 Sentiment Trends Over Time by Region, Topic, and Indicator")
+
+            # Check if topic breakdown is available
+            topic_breakdown_available = (
+                timeline_region and timeline_region != "All Regions" and
+                (not timeline_topic or timeline_topic == "All Topics") and
+                (not timeline_indicator or timeline_indicator == "All Indicators")
+            )
+
+            # Only show the toggle if topic breakdown is available
+            show_topic_breakdown = False
+            if topic_breakdown_available:
+                show_topic_breakdown = st.toggle(
+                    f"📊 Show topic breakdown for {timeline_region}",
+                    value=False,
+                    help="Break down sentiment by individual topics within the selected region"
+                )
+                
+                if show_topic_breakdown:
+                    st.info(f"📈 Showing individual topic trends within {timeline_region}")
+            else:
+                # Optionally show why the toggle is not available
+                if timeline_region and timeline_region != "All Regions":
+                    if timeline_topic and timeline_topic != "All Topics":
+                        st.info("💡 Topic breakdown is only available when 'All Topics' is selected")
+                    if timeline_indicator and timeline_indicator != "All Indicators":
+                        st.info("💡 Topic breakdown is only available when 'All Indicators' is selected")
+
+            if has_data:
+                timeline_fig = news_viz.create_sentiment_timeline(
+                    selected_region=timeline_region, 
+                    selected_topic=timeline_topic,
+                    selected_indicator=timeline_indicator,
+                    show_topic_breakdown=show_topic_breakdown,
+                    max_topics=5  # Show top 5 topics
+                )
+                if timeline_fig:
+                    st.plotly_chart(timeline_fig, use_container_width=True)
+
+                    # Dynamic info message based on toggle state
+                    if timeline_region and not timeline_topic:
+                        if show_topic_breakdown:
+                            st.info(f"📊 **Topic Breakdown**: Individual topic trends within {timeline_region}")
+                        else:
+                            st.info(f"📈 **Overall Trend**: Combined sentiment for {timeline_region} across all topics")
+                else:
+                    st.info("No timeline data available for visualization")
+            else:
+                st.info("No timeline data available - try different filter criteria")
+        
+        with chart_tab4:
+            topic_fig = news_viz.create_topic_analysis_chart()
+            if topic_fig:
+                st.plotly_chart(topic_fig, use_container_width=True)
+            else:
+                st.info("No topic data available for visualization")
+        
+        # Articles by Region and Topic section
+        st.markdown("---")
+        st.subheader("🔍 Articles by Region and Topic")
+
+        col1, col2, col3, col4, col5 = st.columns(5)
+
+        with col1:
+            available_regions = news_viz.get_all_regions()
+            selected_region = st.selectbox(
+                "Select Region",
+                options=["None"] + available_regions,
+                index=0
+            )
+            if selected_region == "None":
+                selected_region = None
+
+        with col2:
+            available_topics = news_viz.get_all_topics()
+            selected_topic = st.selectbox(
+                "Select Topic",
+                options=["None"] + available_topics,
+                index=0
+            )
+            if selected_topic == "None":
+                selected_topic = None
+
+        with col3:
+            available_indicators = news_viz.get_all_indicators()
+            selected_indicator = st.selectbox(
+                "Select Indicator",
+                options=["None"] + available_indicators,
+                index=0
+            )
+            if selected_indicator == "None":
+                selected_indicator = None
+
+        with col4:
+            start_date = st.date_input(
+                "Start Date (optional)",
+                value=None,
+                help="Leave blank for earliest date"
+            )
+
+        with col5:
+            end_date = st.date_input(
+                "End Date (optional)", 
+                value=None,
+                help="Leave blank for latest date"
+            )
+
+        # Filter and display articles
+        if selected_region or selected_topic or selected_indicator or start_date or end_date:
+            with st.spinner("Filtering articles..."):
+                filtered_articles = news_viz.filter_articles_by_region_topic_indicator_and_date(
+                    selected_region=selected_region,
+                    selected_topic=selected_topic,
+                    selected_indicator=selected_indicator,
+                    start_date=start_date,
+                    end_date=end_date,
+                    limit=None  # Get all matching articles
+                )
+            
+            if filtered_articles:
+                filter_desc = []
+                if selected_region: filter_desc.append(f"Region: {selected_region}")
+                if selected_topic: filter_desc.append(f"Topic: {selected_topic}")
+                if selected_indicator: filter_desc.append(f"Indicator: {selected_indicator}")
+                if start_date or end_date:
+                    date_range = f"Date: {start_date or 'earliest'} to {end_date or 'latest'}"
+                    filter_desc.append(date_range)
+                
+                st.success(f"📊 Found **{len(filtered_articles)} articles** matching: {' | '.join(filter_desc)}")
+                # st.success(f"📊 Found **{len(filtered_articles)} articles** matching your criteria")
+                
+                for i, article in enumerate(filtered_articles):
+                    # FIXED: Remove icon and show full title
+                    with st.expander(article['title']):  # Full title, no truncation, no icon
+                        col_left, col_right = st.columns([2, 1])
+                        
+                        with col_left:
+                            # st.markdown("**Summary:**")
+                            st.markdown('<div style="font-size: 1.4rem; font-weight: bold; color: #1f77b4; margin-bottom: 0.5rem;">📄 Summary:</div>', unsafe_allow_html=True)
+                            summary_text = article['summary'].replace('$', '\\$')
+                            st.write(summary_text)
+
+                            # st.markdown("**Impact Analysis:**")
+                            st.markdown('<div style="font-size: 1.4rem; font-weight: bold; color: #ff7f0e; margin-bottom: 0.5rem; margin-top: 1rem;">📊 Impact Analysis:</div>', unsafe_allow_html=True)
+                            st.markdown(article['impact_analysis'])
+                            
+                            if article['link']:
+                                st.markdown(f"[🔗 Read Full Article]({article['link']})")
+                        
+                        with col_right:
+                            # st.markdown("**Details:**")
+                            st.markdown('<div style="font-size: 1.4rem; font-weight: bold; color: #28a745; margin-bottom: 0.5rem;">📋 Details:</div>', unsafe_allow_html=True)
+                            st.write(f"📺 **Source:** {article['source']}")
+                            st.write(f"📍 **Region:** {article['region']}")
+                            st.write(f"📅 **Date:** {article['published_date']}")
+                            # st.write(f"😊 **Sentiment:** {article['sentiment_label']} ({article['sentiment_score']:.2f})")
+
+                            sentiment_emoji = get_sentiment_emoji(article['sentiment_score'], article['sentiment_label'])
+                            st.write(f"{sentiment_emoji} **Sentiment:** {article['sentiment_label']} ({article['sentiment_score']:.2f})")
+
+                            topics = extract_topics_from_analysis(article.get('topic_analysis', ''))
+                            st.write(f"🏷️ **Topics:** {topics}")
+
+                            indicators = extract_indicators_from_analysis(article.get('topic_analysis', ''))
+                            st.write(f"📊 **Indicators:** {indicators}")
+            else:
+                st.warning("No articles found matching your criteria. Try different filters.")
+        else:
+            st.info("👆 Select region, topic, indicator, or date range above to see filtered articles")
+
+        # Recent articles by source
+        st.markdown("---")
+        st.subheader("📋 Recent Articles by Source")
+
+        source_names = news_viz.get_available_sources()
+        display_names = news_viz.get_source_display_names()
+
+        if source_names:
+            tabs = st.tabs(display_names)
+            
+            for tab, source_name, display_name in zip(tabs, source_names, display_names):
+                with tab:
+                    articles = news_viz.get_detailed_articles(source_name, limit=10)
+                    
+                    if articles:
+                        st.info(f"📊 **{len(articles)} recent articles** from {display_name} (latest first)")
+                        
+                        for article in articles:
+                            # FIXED: Remove icon, show full title, consistent font size
+                            with st.expander(article['title']):  # Full title, no truncation, no icon
+                                col_left, col_right = st.columns([2, 1])
+                                
+                                with col_left:
+                                    # st.markdown("**Summary:**")
+                                    st.markdown('<div style="font-size: 1.4rem; font-weight: bold; color: #1f77b4; margin-bottom: 0.5rem;">📄 Summary:</div>', unsafe_allow_html=True)
+                                    summary_text = article['summary'].replace('$', '\\$')
+                                    st.markdown(summary_text)
+
+                                    # st.markdown("**Impact Analysis:**")
+                                    st.markdown('<div style="font-size: 1.4rem; font-weight: bold; color: #ff7f0e; margin-bottom: 0.5rem; margin-top: 1rem;">📊 Impact Analysis:</div>', unsafe_allow_html=True)
+                                    st.markdown(article['impact_analysis'])
+
+                                    if article['link']:
+                                        st.markdown(f"[🔗 Read Full Article]({article['link']})")
+                                
+                                with col_right:
+                                    # st.markdown("**Details:**")
+                                    st.markdown('<div style="font-size: 1.4rem; font-weight: bold; color: #28a745; margin-bottom: 0.5rem;">📋 Details:</div>', unsafe_allow_html=True)
+                                    st.write(f"📍 **Region:** {article['region']}")
+                                    st.write(f"📅 **Date:** {article['published_date']}")
+                                    # st.write(f"😊 **Sentiment:** {article['sentiment_label']} ({article['sentiment_score']:.2f})")
+
+                                    sentiment_emoji = get_sentiment_emoji(article['sentiment_score'], article['sentiment_label'])
+                                    st.write(f"{sentiment_emoji} **Sentiment:** {article['sentiment_label']} ({article['sentiment_score']:.2f})")
+
+                                    topics = extract_topics_from_analysis(article.get('topic_analysis', ''))
+                                    st.write(f"🏷️ **Topics:** {topics}")
+
+                                    indicators = extract_indicators_from_analysis(article.get('topic_analysis', ''))
+                                    st.write(f"📊 **Indicators:** {indicators}")
+                    else:
+                        st.info(f"No articles available for {display_name}")
+        
+    except ImportError:
+        st.error("News data visualizer not available. Please ensure news_data_visualizer.py is in the same directory.")
+    except Exception as e:
+        st.error(f"Error loading news analysis: {e}")
+        import traceback
+        st.code(traceback.format_exc())
+
 def main():
     """Main Streamlit application with fixed navigation"""
+    # Initialize caching
+    init_session_cache()
+
     # Initialize session state
     if 'selected_page' not in st.session_state:
         st.session_state.selected_page = 'overview'
@@ -1374,7 +2115,7 @@ def main():
     
     countries_count = len(data_sources['countries'])
     if countries_count > 0:
-        st.sidebar.markdown('<div class="sidebar-section">🌍 Countries</div>', unsafe_allow_html=True)
+        st.sidebar.markdown('<div class="sidebar-section">🌍 Regions</div>', unsafe_allow_html=True)
         for country in data_sources['countries']:
             country_display = NameFormatter.format_country_name(country)
             st.sidebar.markdown(f'<div class="sidebar-item">• {country_display}</div>', unsafe_allow_html=True)
@@ -1403,6 +2144,9 @@ def main():
     # Create smooth animated container
     create_smooth_page_container()
 
+    # Add cache status to sidebar
+    show_cache_status()
+
     if page_key == "overview":
         create_overview_page(data_sources)
     elif page_key == "country":
@@ -1411,6 +2155,8 @@ def main():
         create_cross_country_page(data_sources)
     elif page_key == "market_indices":
         create_market_page(data_sources)
+    elif page_key == "news_analysis":
+        create_news_analysis_page()
 
     # Close smooth animated container
     close_smooth_page_container()
