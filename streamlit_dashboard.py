@@ -701,7 +701,7 @@ def create_gdp_hero_banner(data_sources):
         }}
         </style>
         
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; max-width: 100%; width: 90vw; padding: 2rem; border-radius: 30px; margin: 1rem 0; box-shadow: 0 8px 32px rgba(0,0,0,0.1);">
+        <div style="background: width: 100vw; box-sizing: border-box; linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; border-radius: 30px; margin: 1rem 0; box-shadow: 0 8px 32px rgba(0,0,0,0.1);">
             <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 3rem; align-items: center; padding: 0 4rem;">
                 <div>
                     <div style="display: flex; align-items: center; margin-bottom: 1rem;">
