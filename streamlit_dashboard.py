@@ -675,11 +675,11 @@ def calculate_quarters_from_actual_data(data_sources):
             pass
 
 def create_gdp_hero_banner(data_sources):
-    """Eye-catching hero banner for GDP coverage"""
+    """Fixed hero banner using native Streamlit elements"""
     gdp_metrics = get_gdp_coverage_metrics()
     
     if gdp_metrics:
-        # Get values first
+        # Get values
         coverage = str(gdp_metrics['coverage_percent'])
         total_gdp = str(gdp_metrics['total_gdp_trillions'])
         countries = str(gdp_metrics['countries_count'])
@@ -691,94 +691,170 @@ def create_gdp_hero_banner(data_sources):
         # Calculate coverage percentage for chart
         coverage_num = float(coverage.replace('%', ''))
         
-        import streamlit.components.v1 as components
-        
-        html_code = f"""
+        # Use native Streamlit container with custom CSS
+        st.markdown("""
         <style>
-        @keyframes pulse {{
-            0% {{ transform: translate(-50%, -50%) scale(1); opacity: 1; }}
-            100% {{ transform: translate(-50%, -50%) scale(1.1); opacity: 0; }}
-        }}
+        .hero-banner {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 2rem;
+            border-radius: 20px;
+            margin: 1rem 0;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+        .hero-grid {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 2rem;
+            align-items: center;
+        }
+        .hero-main {
+            text-align: left;
+        }
+        .hero-title {
+            font-size: 3rem;
+            font-weight: bold;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        .hero-subtitle {
+            font-size: 1.5rem;
+            margin-bottom: 1rem;
+            opacity: 0.9;
+        }
+        .hero-description {
+            font-size: 1.1rem;
+            opacity: 0.8;
+            margin-bottom: 0.5rem;
+        }
+        .hero-chart {
+            width: 200px;
+            height: 200px;
+            position: relative;
+        }
+        .hero-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 1rem;
+        }
+        .stat-item {
+            text-align: center;
+            padding: 1rem;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+            backdrop-filter: blur(10px);
+        }
+        .stat-icon {
+            font-size: 1.5rem;
+            margin-bottom: 0.5rem;
+        }
+        .stat-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+            margin-bottom: 0.3rem;
+        }
+        .stat-value {
+            font-size: 1.3rem;
+            font-weight: bold;
+        }
+        .coverage-circle {
+            width: 180px;
+            height: 180px;
+            border-radius: 50%;
+            background: conic-gradient(#4ade80 0deg ${coverage_num * 3.6}deg, rgba(255,255,255,0.2) ${coverage_num * 3.6}deg 360deg);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            margin: 10px auto;
+        }
+        .coverage-inner {
+            width: 140px;
+            height: 140px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.1);
+            backdrop-filter: blur(20px);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+        }
+        .coverage-percentage {
+            font-size: 2.5rem;
+            font-weight: bold;
+            margin-bottom: 0.2rem;
+        }
+        .coverage-label {
+            font-size: 0.9rem;
+            opacity: 0.8;
+        }
         </style>
+        """, unsafe_allow_html=True)
         
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; border-radius: 30px; margin: 1rem 0; box-shadow: 0 8px 32px rgba(0,0,0,0.1);">
-            <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 3rem; align-items: center; padding: 0 4rem;">
-                <div>
-                    <div style="display: flex; align-items: center; margin-bottom: 1rem;">
-                        <span style="font-size: 3rem; margin-right: 1rem;">🌍</span>
-                        <span style="font-size: 4rem; font-weight: bold;">{coverage}</span>
+        # Create the banner content
+        banner_html = f"""
+        <div class="hero-banner">
+            <div class="hero-grid">
+                <div class="hero-main">
+                    <div class="hero-title">
+                        🌍 {coverage}
                     </div>
-                    <h2 style="margin: 0 0 1rem 0; font-size: 2rem;">of World GDP Coverage</h2>
-                    <p style="margin: 0.5rem 0; font-size: 1.2rem; font-weight: bold;">{total_gdp} across {countries} major economies</p>
-                    <p style="margin: 0.5rem 0; font-size: 1rem;">Latest global annual GDP data: {year}</p>
-                    <p style="margin: 1rem 0 0 0; font-size: 1rem; font-style: italic; opacity: 0.9;">Comprehensive economic data from the world's largest markets <br /> (Quarter-level data is included in Region Analysis)</p>
+                    <div class="hero-subtitle">of World GDP Coverage</div>
+                    <div class="hero-description">${total_gdp}T across {countries} major economies</div>
+                    <div class="hero-description">Latest global annual GDP data: {year}</div>
+                    <div class="hero-description" style="font-style: italic; margin-top: 1rem;">
+                        Comprehensive economic data from the world's largest markets<br>
+                        (Quarter-level data is included in Region Analysis)
+                    </div>
                 </div>
                 
-                <!-- Enhanced Center Donut Chart -->
-               <div style="display: flex; justify-content: center; align-items: center; flex-direction: column;">
-                    <div style="position: relative; margin-bottom: 0;">
-                        <svg width="250" height="250">
-                            <!-- Outer glow effect -->
-                            <defs>
-                                <filter id="glow">
-                                    <feGaussianBlur stdDeviation="5" result="coloredBlur"/>
-                                    <feMerge> 
-                                        <feMergeNode in="coloredBlur"/>
-                                        <feMergeNode in="SourceGraphic"/>
-                                    </feMerge>
-                                </filter>
-                                <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                                    <stop offset="0%" style="stop-color:#4CAF50;stop-opacity:1" />
-                                    <stop offset="50%" style="stop-color:#66BB6A;stop-opacity:1" />
-                                    <stop offset="100%" style="stop-color:#81C784;stop-opacity:1" />
-                                </linearGradient>
-                            </defs>
-                            <!-- Background circle with subtle shadow -->
-                            <circle cx="125" cy="125" r="90" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="16"/>
-                            <!-- Progress circle with gradient and glow -->
-                            <circle cx="125" cy="125" r="90" fill="none" stroke="url(#progressGradient)" stroke-width="18" 
-                                    stroke-dasharray="{coverage_num * 5.655} 565" stroke-dashoffset="0" transform="rotate(-90 125 125)" 
-                                    style="transition: stroke-dasharray 0.8s ease-in-out; filter: url(#glow);" stroke-linecap="round"/>
-                            <!-- Inner circle background -->
-                            <circle cx="125" cy="125" r="65" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
-                            <!-- Center text with shadow -->
-                            <text x="125" y="118" text-anchor="middle" fill="white" font-size="28" font-weight="bold" style="text-shadow: 0 2px 4px rgba(0,0,0,0.3);">{coverage}</text>
-                            <text x="125" y="140" text-anchor="middle" fill="rgba(255,255,255,0.8)" font-size="14">Coverage</text>
-                        </svg>
-                        <!-- Pulsing effect -->
-                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 200px; height: 200px; border: 2px solid rgba(76, 175, 80, 0.3); border-radius: 50%; animation: pulse 2s infinite;"></div>
+                <div class="hero-chart">
+                    <div class="coverage-circle">
+                        <div class="coverage-inner">
+                            <div class="coverage-percentage">{coverage}</div>
+                            <div class="coverage-label">Coverage</div>
+                        </div>
                     </div>
-                    <!-- Subtitle -->
-                    <div style="text-align: center; font-size: 1rem; font-weight: 400; opacity: 0.9;">
+                    <div style="text-align: center; font-size: 0.9rem; margin-top: 0.5rem; opacity: 0.8;">
                         World GDP Coverage
                     </div>
                 </div>
                 
-                <div style="margin-left: 4rem;">
-                    <h3 style="margin: 0 0 1.5rem 0; font-size: 2rem;">📊 Dashboard Overview</h3>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem 3rem;">
-                        <div style="text-align: center;">
-                            <div style="font-size: 1.4rem; margin-bottom: 0.3rem; opacity: 1;">🌍 Economies</div>
-                            <div style="font-size: 1.5rem; font-weight: bold;">{economies_count}</div>
-                        </div>
-                        <div style="text-align: center;">
-                            <div style="font-size: 1.4rem; margin-bottom: 0.3rem; opacity: 1;">📈 Market Indices</div>
-                            <div style="font-size: 1.5rem; font-weight: bold;">{market_count}</div>
-                        </div>
-                        <div style="text-align: center;">
-                            <div style="font-size: 1.4rem; margin-bottom: 0.3rem; opacity: 1;">📊 Indicators</div>
-                            <div style="font-size: 1.5rem; font-weight: bold;">5</div>
-                        </div>
-                        <div style="text-align: center;">
-                            <div style="font-size: 1.4rem; margin-bottom: 0.3rem; opacity: 1;">📅 Data Coverage</div>
-                            <div style="font-size: 1.5rem; font-weight: bold;">{quarters_count} Quarters</div>
-                        </div>
+                <div class="hero-stats">
+                    <div class="stat-item">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-label">Dashboard Overview</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-icon">🌍</div>
+                        <div class="stat-label">Economies</div>
+                        <div class="stat-value">{economies_count}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-icon">📈</div>
+                        <div class="stat-label">Market Indices</div>
+                        <div class="stat-value">{market_count}</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-icon">📊</div>
+                        <div class="stat-label">Indicators</div>
+                        <div class="stat-value">5</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-icon">📅</div>
+                        <div class="stat-label">Data Coverage</div>
+                        <div class="stat-value">{quarters_count} Quarters</div>
                     </div>
                 </div>
             </div>
         </div>
         """
-        components.html(html_code, height=375)
+        
+        # Display the banner using native Streamlit markdown
+        st.markdown(banner_html, unsafe_allow_html=True)
 
 def detect_update_frequency(df, date_column='date'):
     """
