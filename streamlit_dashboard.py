@@ -778,7 +778,7 @@ def create_gdp_hero_banner(data_sources):
             </div>
         </div>
         """
-        components.html(html_code, height=375, width=1500)
+        components.html(html_code, height=375, width=2000)
 
 def detect_update_frequency(df, date_column='date'):
     """
