@@ -675,7 +675,7 @@ def calculate_quarters_from_actual_data(data_sources):
             pass
 
 def create_gdp_hero_banner(data_sources):
-    """Eye-catching hero banner for GDP coverage - FIXED HTML structure"""
+    """Eye-catching hero banner for GDP coverage"""
     gdp_metrics = get_gdp_coverage_metrics()
     
     if gdp_metrics:
@@ -693,58 +693,77 @@ def create_gdp_hero_banner(data_sources):
         
         import streamlit.components.v1 as components
         
-        html_code = f"""
+        html_code = f
+        """
         <style>
         @keyframes pulse {{
             0% {{ transform: translate(-50%, -50%) scale(1); opacity: 1; }}
-            100% {{ transform: translate(-50%, -50%) scale(1); opacity: 0; }}
+            100% {{ transform: translate(-50%, -50%) scale(1.1); opacity: 0; }}
         }}
         </style>
         
-        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; border-radius: 10px; margin: 1rem 0; box-shadow: 0 8px 32px rgba(0,0,0,0.1);">
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; border-radius: 30px; margin: 1rem 0; box-shadow: 0 8px 32px rgba(0,0,0,0.1);">
             <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 3rem; align-items: center; padding: 0 4rem;">
-                <!-- Left Section -->
                 <div>
                     <div style="display: flex; align-items: center; margin-bottom: 1rem;">
-                        <span style="font-size: 3rem; margin-right: 1rem;">📊</span>
+                        <span style="font-size: 3rem; margin-right: 1rem;">🌍</span>
                         <span style="font-size: 4rem; font-weight: bold;">{coverage}</span>
                     </div>
                     <h2 style="margin: 0 0 1rem 0; font-size: 2rem;">of World GDP Coverage</h2>
                     <p style="margin: 0.5rem 0; font-size: 1.2rem; font-weight: bold;">{total_gdp} across {countries} major economies</p>
+                    <p style="margin: 0.5rem 0; font-size: 1rem;">Latest global annual GDP data: {year}</p>
+                    <p style="margin: 1rem 0 0 0; font-size: 1rem; font-style: italic; opacity: 0.9;">Comprehensive economic data from the world's largest markets <br /> (Quarter-level data is included in Region Analysis)</p>
                 </div>
                 
                 <!-- Enhanced Center Donut Chart -->
-                <div style="display: flex; justify-content: center; align-items: center; flex-direction: column;">
+               <div style="display: flex; justify-content: center; align-items: center; flex-direction: column;">
                     <div style="position: relative; margin-bottom: 0;">
                         <svg width="250" height="250">
                             <!-- Outer glow effect -->
                             <defs>
+                                <filter id="glow">
+                                    <feGaussianBlur stdDeviation="5" result="coloredBlur"/>
+                                    <feMerge> 
+                                        <feMergeNode in="coloredBlur"/>
+                                        <feMergeNode in="SourceGraphic"/>
+                                    </feMerge>
+                                </filter>
+                                <linearGradient id="progressGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" style="stop-color:#4CAF50;stop-opacity:1" />
+                                    <stop offset="50%" style="stop-color:#66BB6A;stop-opacity:1" />
+                                    <stop offset="100%" style="stop-color:#81C784;stop-opacity:1" />
+                                </linearGradient>
                             </defs>
-                            
+                            <!-- Background circle with subtle shadow -->
+                            <circle cx="125" cy="125" r="90" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="16"/>
+                            <!-- Progress circle with gradient and glow -->
+                            <circle cx="125" cy="125" r="90" fill="none" stroke="url(#progressGradient)" stroke-width="18" 
+                                    stroke-dasharray="{coverage_num * 5.655} 565" stroke-dashoffset="0" transform="rotate(-90 125 125)" 
+                                    style="transition: stroke-dasharray 0.8s ease-in-out; filter: url(#glow);" stroke-linecap="round"/>
+                            <!-- Inner circle background -->
+                            <circle cx="125" cy="125" r="65" fill="rgba(255,255,255,0.1)" stroke="rgba(255,255,255,0.3)" stroke-width="1"/>
+                            <!-- Center text with shadow -->
                             <text x="125" y="118" text-anchor="middle" fill="white" font-size="28" font-weight="bold" style="text-shadow: 0 2px 4px rgba(0,0,0,0.3);">{coverage}</text>
-                            <text x="125" y="140" text-anchor="middle" fill="rgba(255,255,255,0.8)" font-size="14">{coverage}</text>
+                            <text x="125" y="140" text-anchor="middle" fill="rgba(255,255,255,0.8)" font-size="14">Coverage</text>
                         </svg>
-                        
                         <!-- Pulsing effect -->
                         <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 200px; height: 200px; border: 2px solid rgba(76, 175, 80, 0.3); border-radius: 50%; animation: pulse 2s infinite;"></div>
                     </div>
-                    
                     <!-- Subtitle -->
                     <div style="text-align: center; font-size: 1rem; font-weight: 400; opacity: 0.9;">
                         World GDP Coverage
                     </div>
                 </div>
                 
-                <!-- Right Section -->
                 <div style="margin-left: 4rem;">
-                    <h3 style="margin: 0 0 1.5rem 0; font-size: 2rem;">📈 Dashboard Overview</h3>
+                    <h3 style="margin: 0 0 1.5rem 0; font-size: 2rem;">📊 Dashboard Overview</h3>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem 3rem;">
                         <div style="text-align: center;">
                             <div style="font-size: 1.4rem; margin-bottom: 0.3rem; opacity: 1;">🌍 Economies</div>
                             <div style="font-size: 1.5rem; font-weight: bold;">{economies_count}</div>
                         </div>
                         <div style="text-align: center;">
-                            <div style="font-size: 1.4rem; margin-bottom: 0.3rem; opacity: 1;">📊 Market Indices</div>
+                            <div style="font-size: 1.4rem; margin-bottom: 0.3rem; opacity: 1;">📈 Market Indices</div>
                             <div style="font-size: 1.5rem; font-weight: bold;">{market_count}</div>
                         </div>
                         <div style="text-align: center;">
@@ -752,16 +771,14 @@ def create_gdp_hero_banner(data_sources):
                             <div style="font-size: 1.5rem; font-weight: bold;">5</div>
                         </div>
                         <div style="text-align: center;">
-                            <div style="font-size: 1.4rem; margin-bottom: 0.3rem; opacity: 1;">📊 Data Coverage</div>
+                            <div style="font-size: 1.4rem; margin-bottom: 0.3rem; opacity: 1;">📅 Data Coverage</div>
                             <div style="font-size: 1.5rem; font-weight: bold;">{quarters_count} Quarters</div>
                         </div>
                     </div>
                 </div>
-                
             </div>
         </div>
         """
-        
         components.html(html_code, height=375)
 
 def detect_update_frequency(df, date_column='date'):
