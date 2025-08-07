@@ -11,6 +11,7 @@ from pathlib import Path
 import warnings
 import webbrowser
 import os
+import hashlib
 from datetime import datetime
 
 # ============================================================================
@@ -116,7 +117,13 @@ NAME_CORRECTIONS = {
     'euro_stoxx_50': 'EURO STOXX 50',
     'straits_times_index': 'Straits Times Index',
     'cboe_volatility_index_(vix)': 'VIX',
-    'vix': 'VIX'
+    'vix': 'VIX',
+    'ftse_100_index': 'FTSE 100 Index',
+    'bse_sensex': 'BSE Sensex',
+    'jakarta_composite_index': 'Jakarta Composite Index',
+    'ftse_bursa_malaysia_klci': 'FTSE Bursa Malaysia KLCI',
+    'set_index': 'SET Index',
+    'vn-index': 'VN-Index',
 }
 
 # Color schemes for charts
@@ -394,6 +401,7 @@ class DataProcessor:
             result = pd.DataFrame({
                 'date': pd.to_datetime(df['Date']),
                 'close': pd.to_numeric(df['Close'], errors='coerce'),
+                'volume': pd.to_numeric(df['Volume'], errors='coerce') if 'Volume' in df.columns else 0,
                 'index_name': index_name,
                 'symbol': df.get('Symbol', index_name),
                 'country': df.get('Country', 'Unknown')
