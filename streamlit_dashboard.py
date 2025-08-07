@@ -675,11 +675,11 @@ def calculate_quarters_from_actual_data(data_sources):
             pass
 
 def create_gdp_hero_banner(data_sources):
-    """Fixed hero banner using native Streamlit containers"""
+    """Eye-catching hero banner for GDP coverage - FIXED HTML structure"""
     gdp_metrics = get_gdp_coverage_metrics()
     
     if gdp_metrics:
-        # Get values
+        # Get values first
         coverage = str(gdp_metrics['coverage_percent'])
         total_gdp = str(gdp_metrics['total_gdp_trillions'])
         countries = str(gdp_metrics['countries_count'])
@@ -688,50 +688,81 @@ def create_gdp_hero_banner(data_sources):
         economies_count = str(len(data_sources.get('countries', [])) if data_sources else 11)
         quarters_count = calculate_quarters_from_actual_data(data_sources)
         
-        # Use Streamlit container with simple styling
-        with st.container():
-            st.markdown("""
-            <div style="
-                background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
-                color: white; 
-                padding: 2rem; 
-                border-radius: 15px; 
-                margin: 1rem 0;
-                text-align: center;
-            ">
-                <h1 style="font-size: 3rem; margin-bottom: 0.5rem;">🌍 {}</h1>
-                <h2 style="font-size: 1.8rem; margin-bottom: 1rem; opacity: 0.9;">of World GDP Coverage</h2>
-                <p style="font-size: 1.2rem; margin-bottom: 0.5rem;">${}T across {} major economies</p>
-                <p style="font-size: 1rem; opacity: 0.8;">Latest global annual GDP data: {}</p>
+        # Calculate coverage percentage for chart
+        coverage_num = float(coverage.replace('%', ''))
+        
+        import streamlit.components.v1 as components
+        
+        html_code = f"""
+        <style>
+        @keyframes pulse {{
+            0% {{ transform: translate(-50%, -50%) scale(1); opacity: 1; }}
+            100% {{ transform: translate(-50%, -50%) scale(1); opacity: 0; }}
+        }}
+        </style>
+        
+        <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem; border-radius: 10px; margin: 1rem 0; box-shadow: 0 8px 32px rgba(0,0,0,0.1);">
+            <div style="display: grid; grid-template-columns: 1fr auto 1fr; gap: 3rem; align-items: center; padding: 0 4rem;">
+                <!-- Left Section -->
+                <div>
+                    <div style="display: flex; align-items: center; margin-bottom: 1rem;">
+                        <span style="font-size: 3rem; margin-right: 1rem;">📊</span>
+                        <span style="font-size: 4rem; font-weight: bold;">{coverage}</span>
+                    </div>
+                    <h2 style="margin: 0 0 1rem 0; font-size: 2rem;">of World GDP Coverage</h2>
+                    <p style="margin: 0.5rem 0; font-size: 1.2rem; font-weight: bold;">{total_gdp} across {countries} major economies</p>
+                </div>
+                
+                <!-- Enhanced Center Donut Chart -->
+                <div style="display: flex; justify-content: center; align-items: center; flex-direction: column;">
+                    <div style="position: relative; margin-bottom: 0;">
+                        <svg width="250" height="250">
+                            <!-- Outer glow effect -->
+                            <defs>
+                            </defs>
+                            
+                            <text x="125" y="118" text-anchor="middle" fill="white" font-size="28" font-weight="bold" style="text-shadow: 0 2px 4px rgba(0,0,0,0.3);">{coverage}</text>
+                            <text x="125" y="140" text-anchor="middle" fill="rgba(255,255,255,0.8)" font-size="14">{coverage}</text>
+                        </svg>
+                        
+                        <!-- Pulsing effect -->
+                        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 200px; height: 200px; border: 2px solid rgba(76, 175, 80, 0.3); border-radius: 50%; animation: pulse 2s infinite;"></div>
+                    </div>
+                    
+                    <!-- Subtitle -->
+                    <div style="text-align: center; font-size: 1rem; font-weight: 400; opacity: 0.9;">
+                        World GDP Coverage
+                    </div>
+                </div>
+                
+                <!-- Right Section -->
+                <div style="margin-left: 4rem;">
+                    <h3 style="margin: 0 0 1.5rem 0; font-size: 2rem;">📈 Dashboard Overview</h3>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 2rem 3rem;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 1.4rem; margin-bottom: 0.3rem; opacity: 1;">🌍 Economies</div>
+                            <div style="font-size: 1.5rem; font-weight: bold;">{economies_count}</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 1.4rem; margin-bottom: 0.3rem; opacity: 1;">📊 Market Indices</div>
+                            <div style="font-size: 1.5rem; font-weight: bold;">{market_count}</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 1.4rem; margin-bottom: 0.3rem; opacity: 1;">📊 Indicators</div>
+                            <div style="font-size: 1.5rem; font-weight: bold;">5</div>
+                        </div>
+                        <div style="text-align: center;">
+                            <div style="font-size: 1.4rem; margin-bottom: 0.3rem; opacity: 1;">📊 Data Coverage</div>
+                            <div style="font-size: 1.5rem; font-weight: bold;">{quarters_count} Quarters</div>
+                        </div>
+                    </div>
+                </div>
+                
             </div>
-            """.format(coverage, total_gdp, countries, year), unsafe_allow_html=True)
-            
-            # Add metrics in columns below the banner
-            col1, col2, col3, col4 = st.columns(4)
-            
-            with col1:
-                st.metric(
-                    label="🌍 Economies",
-                    value=economies_count
-                )
-            
-            with col2:
-                st.metric(
-                    label="📈 Market Indices", 
-                    value=market_count
-                )
-            
-            with col3:
-                st.metric(
-                    label="📊 Indicators",
-                    value="5"
-                )
-            
-            with col4:
-                st.metric(
-                    label="📅 Data Coverage",
-                    value=f"{quarters_count} Quarters"
-                )
+        </div>
+        """
+        
+        components.html(html_code, height=375)
 
 def detect_update_frequency(df, date_column='date'):
     """
