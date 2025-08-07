@@ -244,6 +244,54 @@ class MarketIndicesVisualizer:
             fig.update_yaxes(title="Monthly Returns (%)")
             ChartStyler.add_reference_lines(fig, [0], line_color="red")
         
+        elif chart_type == "volume":  # NEW VOLUME CHART
+            fig.add_trace(
+                go.Bar(
+                    x=data['date'], y=data['volume'],
+                    name=f"{display_name} Volume",
+                    marker_color='blue'
+                )
+            )
+            
+            ChartStyler.apply_default_layout(
+                fig,
+                title=f"📊 {display_name} - Trading Volume"
+            )
+            fig.update_yaxes(title="Volume")
+        
+        # Add volume as a subplot for price charts (optional enhancement)
+        elif chart_type == "price_volume":  # NEW COMBO CHART
+            from plotly.subplots import make_subplots
+            
+            fig = make_subplots(
+                rows=2, cols=1,
+                subplot_titles=[f'{display_name} Price', 'Trading Volume'],
+                vertical_spacing=0.1,
+                row_heights=[0.7, 0.3]  # Price gets more space
+            )
+            
+            # Price subplot
+            fig.add_trace(
+                go.Scatter(
+                    x=data['date'], y=data['close'],
+                    mode='lines', name=f"{display_name} Price",
+                    line=dict(width=3, color='blue')
+                ), row=1, col=1
+            )
+            
+            # Volume subplot  
+            fig.add_trace(
+                go.Bar(
+                    x=data['date'], y=data['volume'],
+                    name="Volume", marker_color='lightblue',
+                    showlegend=False
+                ), row=2, col=1
+            )
+            
+            fig.update_layout(title=f"📈 {display_name} - Price & Volume")
+            fig.update_yaxes(title="Price", row=1, col=1)
+            fig.update_yaxes(title="Volume", row=2, col=1)
+        
         fig.update_xaxes(title="Date")
         return fig
     
@@ -313,15 +361,20 @@ class MarketIndicesVisualizer:
                 data = self.market_data[index_name]
                 display_name = NameFormatter.format_display_name(index_name)
                 
+                latest_volume = data['volume'].iloc[-1]
+                avg_volume = data['volume'].mean()
+                
                 # Get source URL
                 source_url = SourceUrlLoader.get_source_url_for_index(index_name, source_urls)
                 
                 summary_data.append({
                     'Index Name': display_name,
                     'Country': data['country'].iloc[0] if 'country' in data.columns else 'Unknown',
+                    'Records': str(len(data)),
                     'Last Closing Date': data['date'].iloc[-1].strftime('%Y-%m-%d'),
                     'Last Closing Price': f"{data['close'].iloc[-1]:,.2f}",
-                    'Records': str(len(data)),
+                    'Last Volume': f"{latest_volume:,.0f}",
+                    'Avg Volume': f"{avg_volume:,.0f}", 
                     'Source URL': source_url
                 })
         
