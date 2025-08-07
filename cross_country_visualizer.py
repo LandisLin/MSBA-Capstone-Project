@@ -412,13 +412,17 @@ class CrossCountryVisualizer:
             # Get latest World Bank GDP data
             if country_key in self.wb_data:
                 if 'gdp' in self.wb_data[country_key]:
-                    latest_gdp = self.wb_data[country_key]['gdp']['value'].iloc[-1]
+                    # Sort by date to ensure we get the most recent value
+                    gdp_data = self.wb_data[country_key]['gdp'].sort_values('date')
+                    latest_gdp = gdp_data['value'].iloc[-1]  # Now this gets the newest data
                     country_summary['GDP (Trillions)'] = f"${latest_gdp:.2f}T"
                 else:
                     country_summary['GDP (Trillions)'] = "N/A"
                 
                 if 'gdp_per_capita' in self.wb_data[country_key]:
-                    latest_gdp_pc = self.wb_data[country_key]['gdp_per_capita']['value'].iloc[-1]
+                    # Sort by date to ensure we get the most recent value
+                    gdp_pc_data = self.wb_data[country_key]['gdp_per_capita'].sort_values('date')
+                    latest_gdp_pc = gdp_pc_data['value'].iloc[-1]  # Now this gets the newest data
                     country_summary['GDP per Capita'] = f"${latest_gdp_pc:,.0f}"
                 else:
                     country_summary['GDP per Capita'] = "N/A"
