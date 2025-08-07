@@ -591,7 +591,7 @@ class SimpleRuleBasedExtractor(BaseTool):
             
             # Create clean DataFrame
             # data = monthly_data[['Date', 'Close']].copy()
-            data = daily_data.reset_index()[['Date', 'Close']].copy()
+            data = daily_data.reset_index()[['Date', 'Close', 'Volume']].copy()
             data.reset_index(drop=True, inplace=True)
             
             # Format Date as clean YYYY-MM-DD (remove time component)
@@ -602,8 +602,8 @@ class SimpleRuleBasedExtractor(BaseTool):
             data.insert(1, 'Symbol', symbol)
             data.insert(2, 'Country', self._get_country_from_name(name))
             
-            # Final column order: Index_Name, Symbol, Country, Date, Close
-            cols = ['Index_Name', 'Symbol', 'Country', 'Date', 'Close']
+            # Final column order: Index_Name, Symbol, Country, Date, Close, Volume
+            cols = ['Index_Name', 'Symbol', 'Country', 'Date', 'Close', 'Volume']
             data = data[cols]
             
             return {
@@ -629,7 +629,18 @@ class SimpleRuleBasedExtractor(BaseTool):
             "shanghai": "000001.SS",
             "sti": "^STI",
             "straits times": "^STI",
-            "vix": "^VIX"
+            "vix": "^VIX",
+            "ftse 100": "^FTSE",
+            "sensex": "^BSESN",
+            "bse sensex": "^BSESN",
+            "jakarta": "^JKSE",
+            "jkse": "^JKSE",
+            "klci": "^KLSE",
+            "bursa": "^KLSE",
+            "set": "^SET.BK",
+            "set index": "^SET.BK",
+            "vn-index": "VNINDEX.VN",
+            "vnindex": "VNINDEX.VN",
         }
         
         name_lower = name.lower()
@@ -655,8 +666,20 @@ class SimpleRuleBasedExtractor(BaseTool):
             return "China"
         elif "hang seng" in name_lower:
             return "Hong Kong"
-        
-        return "Global"
+        elif "ftse 100" in name_lower:
+            return "UK"
+        elif any(word in name_lower for word in ["sensex", "bse"]):
+            return "India"
+        elif any(word in name_lower for word in ["jakarta", "jkse"]):
+            return "Indonesia"
+        elif any(word in name_lower for word in ["klci", "bursa", "malaysia"]):
+            return "Malaysia"
+        elif any(word in name_lower for word in ["set", "thailand"]):
+            return "Thailand"
+        elif any(word in name_lower for word in ["vn-index", "vnindex", "vietnam"]):
+            return "Vietnam"
+        else:
+            return "Global"
     
     def _find_macro_source(self, name: str):
         """Find macro source object"""
@@ -890,20 +913,26 @@ class SimpleRuleBasedExtractor(BaseTool):
 
     # Extraction method for IMF API
     def _extract_imf_api(self, source) -> Optional[pd.DataFrame]:
-        """Extract data from IMF API (Thailand GDP, CPI)"""
+        """Extract data from IMF API (China GDP, Thailand GDP, CPI)"""
         try:
             import urllib.request
             import json
+            import ssl
             
             print(f"   🔄 IMF API: {source.api_url}")
             
+            # CREATE SSL CONTEXT THAT ALLOWS UNVERIFIED CERTIFICATES
+            ssl_context = ssl.create_default_context()
+            ssl_context.check_hostname = False
+            ssl_context.verify_mode = ssl.CERT_NONE
+
             headers = {
                 'Cache-Control': 'no-cache',
                 'User-Agent': 'Economic-Data-Pipeline/1.0'
             }
             
             req = urllib.request.Request(source.api_url, headers=headers)
-            response = urllib.request.urlopen(req, timeout=30)
+            response = urllib.request.urlopen(req, timeout=30, context=ssl_context)
             
             if response.getcode() != 200:
                 print(f"   ❌ IMF API request failed: {response.getcode()}")
