@@ -1575,6 +1575,138 @@ MARKET_INDICES_SOURCES = [
         data_coverage_start="1990",
         backup_sources=["https://fred.stlouisfed.org/series/VIXCLS", "https://www.cboe.com/tradable_products/vix/"]
     ),
+
+    # FTSE 100 (UK)
+    MacroDataSource(
+        name="FTSE 100 Index",
+        url="https://finance.yahoo.com/quote/%5EFTSE/",
+        country="UK",
+        data_type="Stock_Index",
+        source_type="api",
+        authority="Yahoo Finance via yfinance",
+        description="FTSE 100 Index, UK's leading share index of top 100 companies",
+        api_url="^FTSE",  # yfinance symbol
+        update_frequency="daily",
+        data_format="pandas_dataframe",
+        requires_api_key=False,
+        extraction_complexity="simple",
+        real_time_data=True,
+        data_quality_rating=10,
+        api_rate_limits="No specific limits documented",
+        authentication_method="No authentication required",
+        data_coverage_start="1985",
+        backup_sources=["https://www.londonstockexchange.com/indices/ftse-100"]
+    ),
+
+    # Sensex (India)
+    MacroDataSource(
+        name="BSE Sensex",
+        url="https://finance.yahoo.com/quote/%5EBSESN/",
+        country="India",
+        data_type="Stock_Index",
+        source_type="api",
+        authority="Yahoo Finance via yfinance",
+        description="BSE Sensex, India's benchmark stock market index",
+        api_url="^BSESN",  # yfinance symbol
+        update_frequency="daily",
+        data_format="pandas_dataframe",
+        requires_api_key=False,
+        extraction_complexity="simple",
+        real_time_data=True,
+        data_quality_rating=9,
+        api_rate_limits="No specific limits documented",
+        authentication_method="No authentication required",
+        data_coverage_start="1997",
+        backup_sources=["https://www.bseindia.com/sensex/"]
+    ),
+
+    # JKSE (Indonesia)
+    MacroDataSource(
+        name="Jakarta Composite Index",
+        url="https://finance.yahoo.com/quote/%5EJKSE/",
+        country="Indonesia",
+        data_type="Stock_Index",
+        source_type="api",
+        authority="Yahoo Finance via yfinance",
+        description="Jakarta Composite Index (JKSE), Indonesia's main stock market index",
+        api_url="^JKSE",  # yfinance symbol
+        update_frequency="daily",
+        data_format="pandas_dataframe",
+        requires_api_key=False,
+        extraction_complexity="simple",
+        real_time_data=True,
+        data_quality_rating=9,
+        api_rate_limits="No specific limits documented",
+        authentication_method="No authentication required",
+        data_coverage_start="1990",
+        backup_sources=["https://www.idx.co.id/en/market-data/indices/"]
+    ),
+
+    # KLCI (Malaysia)
+    MacroDataSource(
+        name="FTSE Bursa Malaysia KLCI",
+        url="https://finance.yahoo.com/quote/%5EKLSE/",
+        country="Malaysia",
+        data_type="Stock_Index",
+        source_type="api",
+        authority="Yahoo Finance via yfinance",
+        description="FTSE Bursa Malaysia KLCI, Malaysia's benchmark stock index",
+        api_url="^KLSE",  # yfinance symbol
+        update_frequency="daily",
+        data_format="pandas_dataframe",
+        requires_api_key=False,
+        extraction_complexity="simple",
+        real_time_data=True,
+        data_quality_rating=9,
+        api_rate_limits="No specific limits documented",
+        authentication_method="No authentication required",
+        data_coverage_start="1993",
+        backup_sources=["https://www.bursamalaysia.com/market_information/equities_prices"]
+    ),
+
+    # SET (Thailand)
+    MacroDataSource(
+        name="SET Index",
+        url="https://finance.yahoo.com/quote/%5ESET.BK/",
+        country="Thailand",
+        data_type="Stock_Index",
+        source_type="api",
+        authority="Yahoo Finance via yfinance",
+        description="Stock Exchange of Thailand (SET) Index",
+        api_url="^SET.BK",  # yfinance symbol
+        update_frequency="daily",
+        data_format="pandas_dataframe",
+        requires_api_key=False,
+        extraction_complexity="simple",
+        real_time_data=True,
+        data_quality_rating=9,
+        api_rate_limits="No specific limits documented",
+        authentication_method="No authentication required",
+        data_coverage_start="1996",
+        backup_sources=["https://www.set.or.th/en/market/index"]
+    ),
+
+    # VN-Index (Vietnam)
+    MacroDataSource(
+        name="VN-Index",
+        url="https://finance.yahoo.com/quote/%5EVNINDEX.VN/",
+        country="Vietnam",
+        data_type="Stock_Index",
+        source_type="api",
+        authority="Yahoo Finance via yfinance",
+        description="VN-Index, Ho Chi Minh Stock Exchange main index",
+        api_url="VNINDEX.VN",  # yfinance symbol
+        update_frequency="daily",
+        data_format="pandas_dataframe",
+        requires_api_key=False,
+        extraction_complexity="simple",
+        real_time_data=True,
+        data_quality_rating=8,
+        api_rate_limits="No specific limits documented",
+        authentication_method="No authentication required",
+        data_coverage_start="Unknown",
+        backup_sources=["https://www.hsx.vn/Modules/Listed/Web/SymbolList/en"]
+    ),
 ]
 
 # # =============================================================================
