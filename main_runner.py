@@ -15,7 +15,7 @@ project_root = Path(__file__).parent
 sys.path.insert(0, str(project_root))
 
 # Import pipeline components
-from llm_free_pipeline import create_llm_free_pipeline
+from main_pipeline import create_llm_free_pipeline
 
 # Import extraction tools
 try:
