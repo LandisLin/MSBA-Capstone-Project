@@ -30,6 +30,8 @@ from visualization_config import (
     load_market_data
 )
 
+from consolidate_analysis import create_consolidate_analysis_page
+
 # Page configuration
 st.set_page_config(
     page_title="Economic Data Dashboard",
@@ -778,7 +780,7 @@ def create_gdp_hero_banner(data_sources):
             </div>
         </div>
         """
-        components.html(html_code, height=375, width=2000)
+        components.html(html_code, height=375)
 
 def detect_update_frequency(df, date_column='date'):
     """
@@ -885,6 +887,7 @@ def create_enhanced_sidebar_navigation(data_sources):
         {'key': 'cross_country', 'icon': '🔗', 'title': 'Cross-Region', 'description': 'Compare across regions'},
         {'key': 'market_indices', 'icon': '📈', 'title': 'Market Indices', 'description': 'Global market analysis'},
         {'key': 'news_analysis', 'icon': '📰', 'title': 'News Analysis', 'description': 'Economic news topic and sentiment'},
+        {'key': 'consolidate_analysis', 'icon': '📋', 'title': 'Consolidate Analysis', 'description': 'Export & analyze unified datasets'},
     ]
     
     # Create navigation buttons with even spacing
@@ -2157,6 +2160,8 @@ def main():
         create_market_page(data_sources)
     elif page_key == "news_analysis":
         create_news_analysis_page()
+    elif page_key == "consolidate_analysis":
+        create_consolidate_analysis_page()
 
     # Close smooth animated container
     close_smooth_page_container()
