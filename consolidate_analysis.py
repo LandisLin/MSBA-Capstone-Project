@@ -11,6 +11,8 @@ import glob
 from pathlib import Path
 from typing import Dict, List, Tuple, Optional
 import streamlit as st
+from scipy.stats import pearsonr
+import plotly.graph_objects as go
 
 class ConsolidateAnalysis:
     """
@@ -588,6 +590,21 @@ class ConsolidateAnalysis:
     def get_summary_stats(self) -> Dict:
         """Get summary statistics of consolidated data"""
         return self.data_summary
+    
+    @staticmethod
+    def categorize_relationship(target_country, other_country, target_type, other_type):
+        if target_country == other_country:
+            # Same country relationships
+            if target_type == other_type:
+                return f"Domestic - {target_type} to {target_type}"
+            else:
+                return f"Domestic - {target_type} to {other_type}"
+        else:
+            # Different country relationships
+            if target_type == other_type:
+                return f"Cross-Country - {target_type} to {target_type}"
+            else:
+                return f"Cross-Country - {target_type} to {other_type}"
 
 # Streamlit interface functions
 def create_consolidate_analysis_page():
@@ -838,18 +855,25 @@ def create_correlation_analysis_section():
                             (filtered_df['Attribute'] == attribute)
                         ][['Date', 'Value']].rename(columns={'Value': 'other'})
                         
+                        other_type = filtered_df[(filtered_df['Country'] == country) & (filtered_df['Attribute'] == attribute)]['Type'].iloc[0]
+                        target_type = filtered_df[(filtered_df['Country'] == target_country) & (filtered_df['Attribute'] == target_attribute)]['Type'].iloc[0]
+
                         # Find actual overlapping dates (no filling)
                         merged = pd.merge(target_data, other_data, on='Date', how='inner')
                         
-                        if len(merged) >= 3:  # Need at least 3 overlapping points
-                            corr = merged['target'].corr(merged['other'])
-                            if pd.notna(corr):
-                                correlations.append({
-                                    'Country': country,
-                                    'Attribute': attribute,
-                                    'Correlation': round(corr, 4),
-                                    'Data_Points': len(merged)  # Real overlapping points only
-                                })
+                        if len(merged) >= 10:
+                            if merged['target'].std() > 0 and merged['other'].std() > 0:
+                                corr, p_value = pearsonr(merged['target'], merged['other'])
+                                if pd.notna(corr) and p_value <= 0.10:
+                                    correlations.append({
+                                        'Country': country,
+                                        'Attribute': attribute,
+                                        'Correlation': round(corr, 3),  # Reduced precision
+                                        'P_Value': round(p_value, 3),
+                                        'Data_Points': len(merged),
+                                        'Significance': 'High' if p_value < 0.01 else 'Medium' if p_value < 0.05 else 'Low',
+                                        'Category': ConsolidateAnalysis.categorize_relationship(target_country, country, target_type, other_type)
+                                    })
                 
                 if not correlations:
                     st.warning("No sufficient overlapping data found for correlation analysis")
@@ -877,10 +901,7 @@ def create_correlation_analysis_section():
                     avg_points = corr_df['Data_Points'].mean()
                     st.metric("Avg Data Points", f"{avg_points:.0f}")
                 
-                # Create correlation chart
-                import plotly.graph_objects as go
-                
-                # Create horizontal bar chart
+                # Create horizontal correlation bar chart
                 fig = go.Figure()
                 
                 # Color coding: positive = green, negative = red
@@ -937,7 +958,14 @@ def create_correlation_analysis_section():
                         "Country": st.column_config.TextColumn("Country", width="medium"),
                         "Attribute": st.column_config.TextColumn("Indicator", width="large"), 
                         "Correlation": st.column_config.TextColumn("Correlation", width="small"),
-                        "Data_Points": st.column_config.NumberColumn("Actual Overlap", width="small")
+                        "P_Value": st.column_config.TextColumn("P-Value", width="small"),
+                        "Data_Points": st.column_config.NumberColumn("Sample Size", width="small"),
+                        "Significance": st.column_config.SelectboxColumn(
+                            "Reliability",
+                            options=["High", "Medium", "Low"],
+                            width="small"
+                        ),
+                        "Category": st.column_config.TextColumn("Type", width="medium")
                     }
                 )
                 
