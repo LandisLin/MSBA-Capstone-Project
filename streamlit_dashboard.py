@@ -31,6 +31,7 @@ from visualization_config import (
 )
 
 from consolidate_analysis import create_consolidate_analysis_page
+from prediction_analysis_test import create_prediction_analysis_page
 
 # Page configuration
 st.set_page_config(
@@ -888,6 +889,7 @@ def create_enhanced_sidebar_navigation(data_sources):
         {'key': 'market_indices', 'icon': '📈', 'title': 'Market Indices', 'description': 'Global market analysis'},
         {'key': 'news_analysis', 'icon': '📰', 'title': 'News Analysis', 'description': 'Economic news topic and sentiment'},
         {'key': 'consolidate_analysis', 'icon': '📋', 'title': 'Consolidate Analysis', 'description': 'Export & analyze unified datasets'},
+        {'key': 'prediction_analysis', 'icon': '🔮', 'title': 'Economic Forecasting', 'description': 'Generate economic predictions'},
     ]
     
     # Create navigation buttons with even spacing
@@ -2162,6 +2164,8 @@ def main():
         create_news_analysis_page()
     elif page_key == "consolidate_analysis":
         create_consolidate_analysis_page()
+    elif page_key == "prediction_analysis": 
+        create_prediction_analysis_page()
 
     # Close smooth animated container
     close_smooth_page_container()
