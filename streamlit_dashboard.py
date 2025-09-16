@@ -890,6 +890,7 @@ def create_enhanced_sidebar_navigation(data_sources):
         {'key': 'news_analysis', 'icon': '📰', 'title': 'News Analysis', 'description': 'Economic news topic and sentiment'},
         {'key': 'consolidate_analysis', 'icon': '📋', 'title': 'Consolidate Analysis', 'description': 'Export & analyze unified datasets'},
         {'key': 'prediction_analysis', 'icon': '🔮', 'title': 'Economic Forecasting', 'description': 'Generate economic predictions'},
+        {'key': 'forum_analysis', 'icon': '💬', 'title': 'Forum Analysis', 'description': 'Forum discussion sentiment and topics'},
     ]
     
     # Create navigation buttons with even spacing
@@ -2093,6 +2094,194 @@ def create_news_analysis_page():
         import traceback
         st.code(traceback.format_exc())
 
+def create_forum_analysis_page():
+    """Display Forum Analysis Dashboard"""
+    create_smooth_page_container()
+    
+    st.markdown('<div class="main-header">💬 Forum Analysis Dashboard</div>', unsafe_allow_html=True)
+    st.markdown("---")
+    
+    try:
+        # Import forum visualizer
+        from forum_visualizer import ForumVisualizer
+        forum_viz = ForumVisualizer()
+        
+        # Check if forum data is available
+        if not forum_viz.forum_data:
+            st.error("📂 No forum analysis data found")
+            st.info("Expected file: `master_forum_analysis.xlsx`")
+            st.info("Please ensure the forum analysis has been completed and the file is in the project directory.")
+            return
+        
+        available_threads = forum_viz.get_available_threads()
+        
+        if not available_threads:
+            st.warning("No forum threads found in the data")
+            return
+        
+        # Summary metrics
+        st.subheader("📊 Forum Analysis Overview")
+        
+        # Thread selection for detailed analysis
+        thread_options = ["All Threads"] + [f"Thread {thread_id}" for thread_id in available_threads]
+        selected_display = st.selectbox(
+            "Select Forum Thread for Detailed Analysis",
+            options=thread_options,
+            help="Choose a specific thread or view combined data"
+        )
+        
+        # Extract thread ID from display name
+        if selected_display == "All Threads":
+            thread_for_analysis = None
+            thread_id_for_analysis = None
+        else:
+            thread_id_for_analysis = selected_display.replace("Thread ", "")
+            thread_for_analysis = thread_id_for_analysis
+        
+        # Get summary metrics
+        metrics = forum_viz.get_summary_metrics(thread_for_analysis)
+        if metrics:
+            col1, col2, col3, col4 = st.columns(4)
+            
+            with col1:
+                st.metric("💬 Total Posts", f"{metrics['total_posts']:,}")
+            with col2:
+                st.metric("📅 Weeks Analyzed", metrics['total_weeks'])
+            with col3:
+                sentiment_emoji = "😊" if metrics['avg_sentiment'] > 0.1 else "😟" if metrics['avg_sentiment'] < -0.1 else "😐"
+                st.metric("😊 Avg Sentiment", f"{sentiment_emoji} {metrics['avg_sentiment']}")
+            with col4:
+                st.metric("📈 Latest Week", metrics['latest_week'])
+        
+        st.markdown("---")
+        
+        # Main content tabs
+        tab1, tab2, tab3, tab4, tab5 = st.tabs([
+            "📈 Sentiment Timeline", 
+            "📊 Post Volume", 
+            "🏷️ Topic Analysis", 
+            "🕒 Interactive Timeline", 
+            "📅 Weekly Details"
+        ])
+        
+        with tab1:
+            st.subheader("📈 Weekly Sentiment Timeline")
+            sentiment_fig = forum_viz.create_sentiment_timeline(thread_for_analysis)
+            if sentiment_fig:
+                st.plotly_chart(sentiment_fig, use_container_width=True)
+                st.info("💡 **How to read:** Positive scores (>0) indicate positive sentiment, negative scores (<0) indicate negative sentiment. Click and drag to zoom into specific time periods.")
+            else:
+                st.info("No sentiment timeline data available")
+        
+        with tab2:
+            st.subheader("📊 Post Volume with Sentiment Overlay")
+            volume_fig = forum_viz.create_post_volume_chart(thread_for_analysis)
+            if volume_fig:
+                st.plotly_chart(volume_fig, use_container_width=True)
+                st.info("💡 **How to read:** Blue bars show posting activity, red line shows sentiment trends. High posting activity with negative sentiment may indicate controversial discussions.")
+            else:
+                st.info("No post volume data available")
+        
+        with tab3:
+            st.subheader("🏷️ Topic Distribution Analysis")
+            
+            col1, col2 = st.columns([1, 1])
+            with col1:
+                top_n = st.slider("Number of topics to show", 5, 20, 10)
+            
+            topic_fig = forum_viz.create_topic_distribution_chart(thread_for_analysis, top_n)
+            if topic_fig:
+                st.plotly_chart(topic_fig, use_container_width=True)
+                
+                # Show word cloud style topics for all time
+                st.markdown("**🎨 Topic Word Cloud (All Time):**")
+                all_topics = forum_viz.extract_topics_for_wordcloud(thread_for_analysis)
+                if all_topics:
+                    # Create HTML word cloud
+                    sorted_topics = sorted(all_topics.items(), key=lambda x: x[1], reverse=True)[:20]
+                    html_tags = []
+                    max_count = max(all_topics.values()) if all_topics else 1
+                    
+                    for topic, count in sorted_topics:
+                        # Size based on frequency (between 1em and 3em)
+                        size = 1 + (count / max_count) * 2
+                        color = f"hsl({hash(topic) % 360}, 70%, 50%)"
+                        html_tags.append(f'<span style="font-size: {size}em; color: {color}; margin: 8px; font-weight: bold; display: inline-block;">{topic}</span>')
+                    
+                    html_content = f'<div style="text-align: center; padding: 30px; background-color: #f8f9fa; border-radius: 15px; margin: 20px 0;">{" ".join(html_tags)}</div>'
+                    st.markdown(html_content, unsafe_allow_html=True)
+                else:
+                    st.info("No topics found for word cloud")
+            else:
+                st.info("No topic distribution data available")
+        
+        with tab4:
+            st.subheader("🕒 Interactive Timeline with Dynamic Word Cloud")
+            if thread_for_analysis:  # Only show for single thread to avoid complexity
+                forum_viz.create_horizontal_timeline_with_wordcloud(thread_for_analysis)
+            else:
+                st.info("💡 Please select a specific thread to use the interactive timeline feature")
+                
+                # Show simplified version for all threads
+                combined_topics = forum_viz.extract_topics_for_wordcloud(None)
+                if combined_topics:
+                    st.markdown("**🎨 Combined Topics Word Cloud:**")
+                    sorted_topics = sorted(combined_topics.items(), key=lambda x: x[1], reverse=True)[:25]
+                    html_tags = []
+                    max_count = max(combined_topics.values()) if combined_topics else 1
+                    
+                    for topic, count in sorted_topics:
+                        size = 1.2 + (count / max_count) * 2.5
+                        color = f"hsl({hash(topic) % 360}, 70%, 45%)"
+                        html_tags.append(f'<span style="font-size: {size}em; color: {color}; margin: 10px; font-weight: bold; display: inline-block;">{topic}</span>')
+                    
+                    html_content = f'<div style="text-align: center; padding: 40px; background-color: #f8f9fa; border-radius: 15px; margin: 20px 0; border: 2px dashed #dee2e6;">{" ".join(html_tags)}</div>'
+                    st.markdown(html_content, unsafe_allow_html=True)
+        
+        with tab5:
+            st.subheader("📅 Weekly Analysis Details")
+            if thread_for_analysis:
+                forum_viz.create_weekly_cards_component(thread_for_analysis)
+            else:
+                st.info("💡 Please select a specific thread to view detailed weekly analysis")
+                
+                # Show summary for all threads
+                if available_threads:
+                    st.markdown("**📋 Thread Overview:**")
+                    for thread_id in available_threads:
+                        thread_metrics = forum_viz.get_summary_metrics(thread_id)
+                        if thread_metrics:
+                            with st.expander(f"📊 Thread {thread_id} - {thread_metrics['total_posts']} posts, {thread_metrics['total_weeks']} weeks"):
+                                col1, col2, col3 = st.columns(3)
+                                with col1:
+                                    st.metric("Posts", thread_metrics['total_posts'])
+                                with col2:
+                                    st.metric("Weeks", thread_metrics['total_weeks'])
+                                with col3:
+                                    sentiment_emoji = "😊" if thread_metrics['avg_sentiment'] > 0.1 else "😟" if thread_metrics['avg_sentiment'] < -0.1 else "😐"
+                                    st.metric("Avg Sentiment", f"{sentiment_emoji} {thread_metrics['avg_sentiment']}")
+        
+        # Footer with data source info
+        st.markdown("---")
+        st.markdown("**📝 Data Source:** Forum analysis based on weekly aggregated discussions and sentiment analysis")
+        
+        # Show thread details from Contents sheet if available
+        try:
+            contents_df = pd.read_excel('master_forum_analysis.xlsx', sheet_name='Contents')
+            if not contents_df.empty and thread_for_analysis:
+                thread_info = contents_df[contents_df['Thread ID'].astype(str) == str(thread_for_analysis)]
+                if not thread_info.empty:
+                    info = thread_info.iloc[0]
+                    st.info(f"**Thread:** {info['Thread Title']} | **Coverage:** {info['Weeks Coverage']} weeks | **Period:** {info['Date Range']} | **Last Updated:** {info['Last Extraction Time']}")
+        except:
+            pass  # Silently handle if Contents sheet is not available
+        
+    except ImportError:
+        st.error("❌ Forum visualizer module not found. Please ensure `forum_visualizer.py` is in the project directory.")
+    except Exception as e:
+        st.error(f"❌ Error loading forum analysis: {e}")
+        st.info("Please check that the forum analysis data file is properly formatted and accessible.")
+
 def main():
     """Main Streamlit application with fixed navigation"""
     # Initialize caching
@@ -2166,6 +2355,8 @@ def main():
         create_consolidate_analysis_page()
     elif page_key == "prediction_analysis": 
         create_prediction_analysis_page()
+    elif page_key == "forum_analysis":
+        create_forum_analysis_page()
 
     # Close smooth animated container
     close_smooth_page_container()
