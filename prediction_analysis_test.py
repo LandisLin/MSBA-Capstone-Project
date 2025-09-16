@@ -258,7 +258,7 @@ class MacroPredictor:
         return pd.DataFrame(predictions), status_message
     
     def fit_prophet_model(self, data, periods_ahead=12):
-        """Fit Prophet model for forecasting - FIXED to focus on recent trend"""
+        """Enhanced Prophet model with adaptive parameters and trend momentum"""
         if not HAS_PROPHET:
             return self.fit_simple_model(data, periods_ahead)
         
@@ -267,10 +267,56 @@ class MacroPredictor:
         if len(df) < 24:
             return self.fit_simple_model(data, periods_ahead)
         
-        # FOR PROPERTY PRICES: Use only recent data to capture current trend
+        # IMPROVED: Better data window selection for Property_Price
         if self.indicator_type == 'Property_Price' and len(df) > 40:
-            print(f"Property Price detected: Using recent {min(40, len(df))} data points for trend focus")
-            df = df.tail(40)  # Use only last 40 quarters (~10 years) for property prices
+            # Check for structural breaks around 2024 first
+            recent_trend = np.polyfit(range(6), df['value'].tail(6), 1)[0]
+            
+            # Look for 2024+ data to detect structural breaks
+            break_point_2024 = df[pd.to_datetime(df['date']) >= '2024-01-01']
+            
+            if len(break_point_2024) > 6:
+                # Calculate pre-2024 and post-2024 trends
+                pre_2024 = df[pd.to_datetime(df['date']) < '2024-01-01']
+                post_2024 = break_point_2024
+                
+                if len(pre_2024) >= 12 and len(post_2024) >= 6:
+                    pre_trend = np.polyfit(range(len(pre_2024.tail(12))), pre_2024['value'].tail(12), 1)[0]
+                    post_trend = np.polyfit(range(len(post_2024)), post_2024['value'], 1)[0]
+                    
+                    trend_change_ratio = abs(post_trend - pre_trend) / (abs(pre_trend) + 0.001)
+                    
+                    if trend_change_ratio > 0.8:
+                        # Use data that includes the trend change
+                        optimal_window = len(post_2024) + 18  # Include some pre-break context
+                        df = df.tail(optimal_window)
+                        print(f"Property Price: Structural break detected, using {optimal_window} points")
+                    else:
+                        # Normal adaptive window
+                        older_trend = np.polyfit(range(20), df['value'].iloc[-40:-20], 1)[0]
+                        trend_consistency = abs(recent_trend - older_trend) / abs(recent_trend + 0.001)
+                        
+                        if trend_consistency > 0.5:
+                            df = df.tail(36)  # Slightly more data than original 30
+                            print(f"Property Price: Trend change detected, using recent 36 points")
+                        else:
+                            df = df.tail(48)  # Balanced approach
+                            print(f"Property Price: Stable trend, using 48 data points")
+            else:
+                # Original logic for cases without 2024+ data
+                older_trend = np.polyfit(range(20), df['value'].iloc[-40:-20], 1)[0]
+                trend_consistency = abs(recent_trend - older_trend) / abs(recent_trend + 0.001)
+                
+                if trend_consistency > 0.5:
+                    df = df.tail(30)
+                    print(f"Property Price: Trend change detected, using recent 30 points")
+                else:
+                    df = df.tail(50)
+                    print(f"Property Price: Stable trend, using 50 data points")
+        
+        # Calculate data characteristics for adaptive parameters
+        volatility = df['value'].pct_change().std()
+        trend_strength = abs(np.polyfit(range(len(df)), df['value'], 1)[0])
         
         # Prepare data for Prophet
         prophet_data = pd.DataFrame({
@@ -279,24 +325,86 @@ class MacroPredictor:
         })
         
         try:
-            # Configure Prophet for property prices - more aggressive trend following
+            # IMPROVED: More conservative base parameters
+            base_changepoint_scale = 0.05
+            base_seasonality_scale = 8.0  # Reduced from 10.0 to prioritize trends
+            
+            # Adjust based on volatility (keeping your logic but refined)
+            if volatility > 0.05:  # High volatility data
+                changepoint_scale = min(0.15, base_changepoint_scale + volatility * 1.5)  # Less aggressive
+                seasonality_scale = max(4.0, base_seasonality_scale - volatility * 40)    # Less impact
+            else:  # Low volatility data
+                changepoint_scale = base_changepoint_scale
+                seasonality_scale = base_seasonality_scale
+            
+            # IMPROVED: More conservative changepoint count
+            n_changepoints = min(20, max(5, len(df) // 10))  # Reduced from // 8
+            
             model_params = {
-                'weekly_seasonality': False, 
+                'weekly_seasonality': False,
                 'daily_seasonality': False,
-                'yearly_seasonality': True,
-                'changepoint_prior_scale': 0.05,  # More sensitive to trend changes
-                'seasonality_prior_scale': 10.0,   # Stronger seasonality
+                'yearly_seasonality': False,
+                'changepoint_prior_scale': changepoint_scale,
+                'seasonality_prior_scale': seasonality_scale,
+                'n_changepoints': n_changepoints,
+                'changepoint_range': 0.92,  # CRITICAL FIX: Increased from 0.85
+                'interval_width': 0.8,
             }
             
+            # IMPROVED: Property-specific adjustments with better parameters
             if self.indicator_type == 'Property_Price':
-                model_params['changepoint_prior_scale'] = 0.1  # Even more sensitive for property
-                model_params['yearly_seasonality'] = False     # Less seasonality for property
+                # Calculate recent trend for better cap setting
+                recent_trend_6m = np.polyfit(range(6), df['value'].tail(6), 1)[0]
+                last_value = df['value'].iloc[-1]
+                
+                # CRITICAL FIX: Much more generous cap calculation
+                recent_max = df['value'].tail(12).max()
+                
+                if recent_trend_6m > 0.3:
+                    # For upward trends: allow significant growth above current levels
+                    projected_growth = last_value + (recent_trend_6m * 12)  # 12-month projection
+                    cap = max(projected_growth * 1.15, last_value * 1.30)   # At least 30% above current
+                elif recent_trend_6m > 0:
+                    # Mild upward trend
+                    cap = last_value * 1.25  # 25% above for mild trends
+                else:
+                    # Flat or declining trends - still allow upward movement
+                    cap = last_value * 1.20  # 20% above
+                
+                floor = df['value'].min() * 0.85  # Slightly higher floor
+                prophet_data['cap'] = cap
+                prophet_data['floor'] = floor
+                model_params['growth'] = 'logistic'
+                
+                # IMPROVED: Better changepoint parameters for property
+                model_params['changepoint_prior_scale'] = min(0.08, changepoint_scale * 1.2)  # More flexible
+                model_params['changepoint_range'] = 0.95  # CRITICAL: Much higher for property
+                
+                print(f"Property bounds: cap={cap:.2f} (allows {((cap/last_value-1)*100):.1f}% growth), floor={floor:.2f}")
+                print(f"Recent trend: {recent_trend_6m:.4f}, changepoint_range: {model_params['changepoint_range']}")
             
             model = Prophet(**model_params)
+            
+            # IMPROVED: Reduced seasonality influence to prioritize trends
+            frequency = self.detect_frequency(df)
+            
+            if frequency == 'quarterly':
+                # Annual seasonality for quarterly data with reduced influence
+                model.add_seasonality(name='annual', period=365.25, fourier_order=2, prior_scale=2.0)  # Reduced
+                
+                # Multi-year cycle detection for property (reduced influence)
+                if self.indicator_type == 'Property_Price' and len(df) > 20:
+                    model.add_seasonality(name='medium_cycle', period=365.25 * 3, fourier_order=2, prior_scale=1.0)
+            
+            elif frequency == 'monthly':
+                # Reduced seasonality influence for monthly data
+                model.add_seasonality(name='quarterly', period=365.25/4, fourier_order=2, prior_scale=1.5)
+                model.add_seasonality(name='annual', period=365.25, fourier_order=3, prior_scale=2.5)  # Reduced
+            
+            # Fit model
             model.fit(prophet_data)
             
-            # Create future dates
-            frequency = self.detect_frequency(df)
+            # Create future dates with proper frequency
             last_training_date = prophet_data['ds'].max()
             
             if frequency == 'quarterly':
@@ -304,36 +412,146 @@ class MacroPredictor:
             else:
                 future_dates = [last_training_date + pd.DateOffset(months=i+1) for i in range(periods_ahead)]
             
+            # Prepare future dataframe
             future = pd.DataFrame({'ds': prophet_data['ds'].tolist() + future_dates})
+            
+            # Add cap/floor for future periods if using logistic growth
+            if model_params.get('growth') == 'logistic':
+                future['cap'] = cap
+                future['floor'] = floor
             
             # Generate forecast
             forecast = model.predict(future)
             
             # Return only future predictions
             future_predictions = forecast[forecast['ds'] > prophet_data['ds'].max()].copy()
+            
+            if len(future_predictions) > 0:
+                first_prediction = future_predictions['yhat'].iloc[0]
+                last_actual = df['value'].iloc[-1]
+                prediction_jump = first_prediction - last_actual
+                
+                # Calculate recent trend characteristics
+                recent_trend_3m = np.polyfit(range(3), df['value'].tail(3), 1)[0] if len(df) >= 3 else 0
+                recent_trend_6m = np.polyfit(range(6), df['value'].tail(6), 1)[0] if len(df) >= 6 else 0
+                
+                # Define reasonable jump threshold (adaptive based on current value and volatility)
+                base_threshold = max(2.5, abs(last_actual) * 0.015)  # 1.5% or 2.5 units
+                volatility_factor = df['value'].pct_change().tail(12).std() * 10  # Scale volatility
+                max_reasonable_jump = base_threshold + volatility_factor
+                
+                print(f"Jump Analysis: {last_actual:.2f} → {first_prediction:.2f} (change: {prediction_jump:+.2f})")
+                print(f"Recent trends - 3M: {recent_trend_3m:.3f}, 6M: {recent_trend_6m:.3f}")
+                print(f"Max reasonable jump: ±{max_reasonable_jump:.2f}")
+                
+                # Apply correction if jump exceeds reasonable bounds
+                if abs(prediction_jump) > max_reasonable_jump:
+                    print(f"APPLYING JUMP CORRECTION: {prediction_jump:+.2f} exceeds ±{max_reasonable_jump:.2f}")
+                    
+                    # Calculate conservative target based on recent trends
+                    if prediction_jump > 0:  # Excessive upward jump
+                        # Use more conservative of recent trends, capped at max_reasonable_jump
+                        conservative_change = min(
+                            max(recent_trend_3m * 0.6, recent_trend_6m * 0.8),  # Conservative trend
+                            max_reasonable_jump  # Hard cap
+                        )
+                    else:  # Excessive downward jump
+                        # Similar logic for downward moves
+                        conservative_change = max(
+                            min(recent_trend_3m * 0.6, recent_trend_6m * 0.8),  # Conservative trend
+                            -max_reasonable_jump  # Hard cap
+                        )
+                    
+                    smoothed_first = last_actual + conservative_change
+                    print(f"Smoothed first prediction: {first_prediction:.2f} → {smoothed_first:.2f}")
+                    
+                    # Apply graduated smoothing to first 3 predictions
+                    num_predictions_to_smooth = min(3, len(future_predictions))
+                    blend_weight = 0.0  # INITIALIZE HERE to prevent error
+                    
+                    for i in range(num_predictions_to_smooth):
+                        try:
+                            original = future_predictions['yhat'].iloc[i]
+                            
+                            if i == 0:
+                                corrected = smoothed_first
+                            else:
+                                blend_weight = 0.6 * (0.7 ** i)  # This was causing the error
+                                trend_continuation = smoothed_first + (conservative_change * 0.4 * i)
+                                corrected = blend_weight * trend_continuation + (1 - blend_weight) * original
+                            
+                            # Update prediction using .loc to avoid warnings
+                            future_predictions.loc[future_predictions.index[i], 'yhat'] = corrected
+                            
+                            # Adjust bounds if they exist
+                            if 'yhat_lower' in future_predictions.columns and original != 0:
+                                adjustment_ratio = corrected / original
+                                future_predictions.loc[future_predictions.index[i], 'yhat_lower'] *= adjustment_ratio
+                                future_predictions.loc[future_predictions.index[i], 'yhat_upper'] *= adjustment_ratio
+                            
+                            print(f"  Period {i+1}: {original:.2f} → {corrected:.2f}")
+                            
+                        except Exception as e:
+                            print(f"Error correcting prediction {i}: {e}")
+                            break
+                
+                else:
+                    print(f"No correction needed - jump {prediction_jump:+.2f} within reasonable bounds ±{max_reasonable_jump:.2f}")
+            
             future_predictions = future_predictions.rename(columns={
                 'ds': 'date', 
                 'yhat': 'predicted_value',
                 'yhat_lower': 'lower_bound',
                 'yhat_upper': 'upper_bound'
             })
-            future_predictions['model'] = 'Prophet'
+            
+            # Enhanced model name with key parameters
+            model_name = f'Enhanced_Prophet(cp={changepoint_scale:.2f},range={model_params["changepoint_range"]:.2f})'
+            if model_params.get('growth') == 'logistic':
+                model_name += '_logistic'
+            
+            future_predictions['model'] = model_name
             
             self.model = model
             
-            # Check if Prophet predictions are below current value (problematic)
+            # Enhanced validation with better messaging
             current_value = df['value'].iloc[-1]
             first_prediction = future_predictions['predicted_value'].iloc[0]
             
-            if first_prediction < current_value * 0.95:  # If prediction drops >5%
-                print(f"WARNING: Prophet predicting decline from {current_value:.2f} to {first_prediction:.2f}")
-                print("This may indicate Prophet is being overly conservative for recent trends")
+            # Dynamic threshold based on volatility
+            threshold = 0.95 - volatility
             
-            return future_predictions[['date', 'predicted_value', 'lower_bound', 'upper_bound', 'model']], "Prophet model fitted successfully"
+            if first_prediction < current_value * threshold:
+                print(f"NOTE: Prediction shows decline from {current_value:.2f} to {first_prediction:.2f}")
+                print(f"Model parameters: cp_scale={changepoint_scale:.3f}, cp_range={model_params['changepoint_range']:.2f}")
+            
+            # Forecast reasonableness check
+            max_growth = self.forecast_validation(future_predictions, volatility)
+            
+            status_parts = [
+                "Enhanced Prophet model fitted",
+                f"Changepoint range: {model_params['changepoint_range']:.2f}",
+                f"Parameters: cp_scale={changepoint_scale:.3f}",
+                f"Growth: {model_params.get('growth', 'linear')}"
+            ]
+            
+            return future_predictions[['date', 'predicted_value', 'lower_bound', 'upper_bound', 'model']], " | ".join(status_parts)
             
         except Exception as e:
-            print(f"Prophet model failed for {self.indicator_type}: {e}")
+            print(f"Enhanced Prophet model failed for {self.indicator_type}: {e}")
             return self.fit_simple_model(data, periods_ahead)
+    
+    def forecast_validation(self, predictions, volatility):
+        """Validate forecast for unrealistic growth rates"""
+        max_reasonable_growth = 0.1 + volatility  # Adaptive based on data volatility
+        
+        for i in range(1, len(predictions)):
+            growth = (predictions['predicted_value'].iloc[i] / 
+                    predictions['predicted_value'].iloc[i-1]) - 1
+            if abs(growth) > max_reasonable_growth:
+                print(f"WARNING: High growth rate detected: {growth:.1%} (period {i})")
+        
+        return max_reasonable_growth
     
     def fit_arima_model(self, data, periods_ahead=12):
         """
@@ -605,7 +823,7 @@ class PredictionEvaluator:
         }
     
     @staticmethod
-    def evaluate_model_with_date_split(data, model_class, target_indicator, test_start_date='2024-01-01'):
+    def evaluate_model_with_date_split(data, model_class, target_indicator, test_start_date='2024-01-01', model_type='auto'):
         """Evaluate model using date-based train/test split"""
         train_data, test_data = PredictionEvaluator.split_data_by_date(data, test_start_date)
         
@@ -619,7 +837,7 @@ class PredictionEvaluator:
         test_periods = len(test_data)
         
         # Fit model on training data only
-        predictions, status = model_class.predict(train_data, periods_ahead=test_periods)
+        predictions, status = model_class.predict(train_data, periods_ahead=test_periods, model_type=model_type)
         
         if predictions is None:
             return None, f"Model fitting failed: {status}"
@@ -665,6 +883,61 @@ class PredictionEvaluator:
         })
         
         return metrics, f"Model evaluation completed using {test_start_date} cutoff"
+    
+    @staticmethod
+    def evaluate_walk_forward(data, predictor_class, indicator_type, periods_ahead=1, model_type='auto'):
+        """
+        Evaluate using walk-forward validation - more realistic than single split
+        This mimics how the model would actually be used in practice
+        """
+        test_data_check = data[pd.to_datetime(data['date']) >= '2024-01-01'].copy()
+        
+        if len(test_data_check) < 6:  # Need sufficient test data
+            return None, "Insufficient 2024+ data for walk-forward evaluation"
+        
+        errors = []
+        predictions_made = 0
+        
+        # Start from 2024-01-01 and walk forward
+        for i in range(len(test_data_check) - periods_ahead):
+            try:
+                # Get training data up to current point (simulate real-world usage)
+                current_date = test_data_check.iloc[i]['date']
+                train_data = data[pd.to_datetime(data['date']) < current_date].copy()
+                
+                if len(train_data) < 24:  # Need minimum training data
+                    continue
+                
+                # Create fresh predictor and make prediction
+                fresh_predictor = predictor_class(indicator_type)
+                pred_result, _ = fresh_predictor.predict(train_data, periods_ahead=periods_ahead, model_type=model_type)
+                
+                if pred_result is not None and len(pred_result) > 0:
+                    # Get actual value at target date
+                    target_idx = i + periods_ahead
+                    if target_idx < len(test_data_check):
+                        actual_value = test_data_check.iloc[target_idx]['value']
+                        predicted_value = pred_result['predicted_value'].iloc[0]
+                        
+                        # Calculate error
+                        if actual_value != 0:
+                            mape_error = abs(actual_value - predicted_value) / abs(actual_value)
+                            errors.append(mape_error)
+                            predictions_made += 1
+            
+            except Exception as e:
+                continue
+        
+        if len(errors) > 0:
+            walk_forward_mape = np.mean(errors) * 100
+            return {
+                'walk_forward_mape': walk_forward_mape,
+                'predictions_made': predictions_made,
+                'test_period': len(test_data_check),
+                'method': 'walk_forward'
+            }, f"Walk-forward evaluation: {walk_forward_mape:.1f}% MAPE ({predictions_made} predictions)"
+        else:
+            return None, "Walk-forward evaluation failed - no valid predictions"
 
 
 # Utility functions for Streamlit integration
@@ -731,7 +1004,7 @@ def create_prediction_chart(historical_data, predictions, indicator, country):
             mode='lines',
             line=dict(width=0),
             fill='tonexty',
-            fillcolor='rgba(255, 0, 0, 0.1)',
+            fillcolor='rgba(255, 255, 0, 0.3)',
             name='Confidence Interval',
             showlegend=True
         ))
@@ -768,6 +1041,144 @@ def create_prediction_chart(historical_data, predictions, indicator, country):
         template='plotly_white',
         height=500,
         margin=dict(l=50, r=50, t=80, b=50)
+    )
+    
+    return fig
+
+def create_enhanced_prediction_chart(historical_data, predictions, test_predictions, indicator, country, evaluation_results=None):
+    """Create comprehensive visualization with historical data, test predictions, and future forecasts"""
+    import plotly.graph_objects as go
+    
+    # Prepare historical data
+    hist_df = historical_data.copy()
+    hist_df['date'] = pd.to_datetime(hist_df['date'])
+    hist_df = hist_df.sort_values('date')
+    
+    # Create figure
+    fig = go.Figure()
+    
+    # Split historical data into train/test for visualization
+    train_cutoff = pd.to_datetime('2024-01-01')
+    train_hist = hist_df[hist_df['date'] < train_cutoff]
+    test_hist = hist_df[hist_df['date'] >= train_cutoff]
+    
+    # Historical training data
+    fig.add_trace(go.Scatter(
+        x=train_hist['date'],
+        y=train_hist['value'],
+        mode='lines',
+        name='Historical Data (Training)',
+        line=dict(color='blue', width=2)
+    ))
+    
+    # Historical test data (actual values from 2024+)
+    if len(test_hist) > 0:
+        fig.add_trace(go.Scatter(
+            x=test_hist['date'],
+            y=test_hist['value'],
+            mode='lines+markers',
+            name='Actual Data (2024+)',
+            line=dict(color='green', width=2),
+            marker=dict(size=6)
+        ))
+    
+    # Test predictions (model predictions for 2024+ period)
+    if test_predictions is not None and not test_predictions.empty:
+        test_pred_df = test_predictions.copy()
+        test_pred_df['date'] = pd.to_datetime(test_pred_df['date'])
+        
+        fig.add_trace(go.Scatter(
+            x=test_pred_df['date'],
+            y=test_pred_df['predicted_value'],
+            mode='lines+markers',
+            name='Model Test Predictions (2024+)',
+            line=dict(color='orange', width=2, dash='dot'),
+            marker=dict(size=5, symbol='diamond')
+        ))
+    
+    # Future predictions
+    pred_df = predictions.copy()
+    pred_df['date'] = pd.to_datetime(pred_df['date'])
+    
+    fig.add_trace(go.Scatter(
+        x=pred_df['date'],
+        y=pred_df['predicted_value'],
+        mode='lines+markers',
+        name='Future Forecast',
+        line=dict(color='red', width=2, dash='dash'),
+        marker=dict(size=6)
+    ))
+    
+    # Add confidence bands for future predictions if available
+    if 'lower_bound' in pred_df.columns and 'upper_bound' in pred_df.columns:
+        # Upper bound
+        fig.add_trace(go.Scatter(
+            x=pred_df['date'],
+            y=pred_df['upper_bound'],
+            mode='lines',
+            line=dict(width=0),
+            showlegend=False,
+            name='Upper Bound'
+        ))
+        
+        # Lower bound with fill
+        fig.add_trace(go.Scatter(
+            x=pred_df['date'],
+            y=pred_df['lower_bound'],
+            mode='lines',
+            line=dict(width=0),
+            fill='tonexty',
+            fillcolor='rgba(255, 255, 0, 0.2)',
+            name='Confidence Interval',
+            showlegend=True
+        ))
+    
+    # Add vertical lines
+    try:
+        # Training/test split line
+        fig.add_vline(
+            x=train_cutoff,
+            line_dash="solid",
+            line_color="gray",
+            annotation_text="Training/Test Split (2024-01-01)",
+            annotation_position="top"
+        )
+        
+        # Forecast start line
+        if len(hist_df) > 0:
+            forecast_start_dt = hist_df['date'].max()
+            fig.add_vline(
+                x=forecast_start_dt,
+                line_dash="dot",
+                line_color="purple",
+                annotation_text="Forecast Start",
+                annotation_position="bottom"
+            )
+    except Exception:
+        pass
+
+    # Enhanced title with evaluation info
+    title_text = f"{country.replace('_', ' ').title()} - {indicator} Forecast"
+    if evaluation_results:
+        mape = evaluation_results.get('MAPE', 0)
+        title_text += f" (Test MAPE: {mape:.1f}%)"
+    
+    # Update layout
+    fig.update_layout(
+        title=title_text,
+        xaxis_title="Date",
+        yaxis_title="Value",
+        hovermode='x unified',
+        template='plotly_white',
+        height=600,
+        margin=dict(l=50, r=50, t=80, b=50),
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1
+        )
     )
     
     return fig
@@ -884,7 +1295,7 @@ def create_prediction_analysis_page():
     
     # Generate forecast button
     if st.button("Generate Forecast", type="primary"):
-        with st.spinner(f"Generating {forecast_periods}-period forecast..."):
+        with st.spinner(f"Generating {forecast_periods}-period forecast and evaluation..."):
             # Get appropriate predictor
             predictor = MacroPredictor(selected_indicator)
             predictions, status = predictor.predict(current_data, periods_ahead=forecast_periods, model_type=model_type)
@@ -893,12 +1304,69 @@ def create_prediction_analysis_page():
         if predictions is not None and not predictions.empty:
             st.success(f"Status: {status}")
             
-            # Create prediction visualization
-            fig = create_prediction_chart(
+            # AUTOMATIC EVALUATION - Run evaluation during prediction
+            evaluation_results = None
+            test_predictions = None
+            walk_forward_results = None
+
+            # Check if we have 2024+ data for evaluation
+            test_data_check = current_data[pd.to_datetime(current_data['date']) >= '2024-01-01']
+
+            if len(test_data_check) >= 3:
+                try:
+                    with st.spinner("Running comprehensive model evaluation..."):
+                        # 1. Standard evaluation (original method)
+                        train_data, test_data = PredictionEvaluator.split_data_by_date(current_data, '2024-01-01')
+                        eval_predictor = MacroPredictor(selected_indicator)
+                        test_periods = len(test_data)
+                        test_predictions, eval_status = eval_predictor.predict(train_data, periods_ahead=test_periods, model_type=model_type)
+                        
+                        if test_predictions is not None:
+                            metrics, eval_message = PredictionEvaluator.evaluate_model_with_date_split(
+                                current_data, eval_predictor, selected_indicator, test_start_date='2024-01-01', model_type=model_type
+                            )
+                            
+                            if metrics and isinstance(metrics, dict) and 'MAE' in metrics:
+                                evaluation_results = metrics
+                        
+                        # 2. Walk-forward evaluation (more realistic)
+                        if model_type == 'arima':
+                            walk_forward_results = None
+                            st.info("Walk-forward evaluation skipped for ARIMA (computationally expensive)")
+                        else:
+                            walk_forward_results, wf_message = PredictionEvaluator.evaluate_walk_forward(
+                                current_data, MacroPredictor, selected_indicator, periods_ahead=1, model_type=model_type
+                            )
+                        
+                        # Display evaluation info
+                        if evaluation_results and walk_forward_results:
+                            standard_mape = evaluation_results['MAPE']
+                            wf_mape = walk_forward_results['walk_forward_mape']
+                            st.info(f"Standard Evaluation: {standard_mape:.1f}% MAPE | Walk-Forward: {wf_mape:.1f}% MAPE")
+                            
+                            # Flag significant differences
+                            if abs(standard_mape - wf_mape) > 5:
+                                st.warning(f"Large difference between evaluation methods suggests model instability")
+                        
+                        elif evaluation_results:
+                            st.info(f"Standard evaluation: MAPE {evaluation_results['MAPE']:.1f}%")
+                        elif walk_forward_results:
+                            st.info(f"Walk-forward evaluation: MAPE {walk_forward_results['walk_forward_mape']:.1f}%")
+
+                except Exception as e:
+                    st.warning(f"Evaluation failed: {str(e)}")
+
+            else:
+                st.info("Insufficient 2024+ data for evaluation (need 3+ points)")
+            
+            # CREATE ENHANCED VISUALIZATION with evaluation
+            fig = create_enhanced_prediction_chart(
                 current_data, 
                 predictions, 
+                test_predictions,
                 selected_indicator, 
-                selected_country
+                selected_country,
+                evaluation_results
             )
             st.plotly_chart(fig, use_container_width=True)
             
@@ -914,116 +1382,91 @@ def create_prediction_analysis_page():
             
             st.dataframe(display_predictions, use_container_width=True, hide_index=True)
             
-            # # Model performance evaluation
-            # st.subheader("Model Performance Evaluation")
+            # EVALUATION RESULTS DISPLAY
+            if evaluation_results or walk_forward_results:
+                st.subheader("Model Performance Evaluation")
+                
+                eval_col1, eval_col2 = st.columns(2)
+                
+                with eval_col1:
+                    st.markdown("**Standard Evaluation (2024+ Test Set)**")
+                    if evaluation_results:
+                        metric_cols = st.columns(2)
+                        with metric_cols[0]:
+                            st.metric("MAE", f"{evaluation_results['MAE']:.2f}")
+                            st.metric("RMSE", f"{evaluation_results['RMSE']:.2f}")
+                        with metric_cols[1]:
+                            mape_display = f"{evaluation_results['MAPE']:.1f}%" if evaluation_results['MAPE'] < 1000 else "High"
+                            st.metric("MAPE", mape_display)
+                            st.metric("Test Points", evaluation_results['test_points'])
+                    else:
+                        st.info("Standard evaluation not available")
+                
+                with eval_col2:
+                    st.markdown("**Walk-Forward Evaluation (Realistic)**")
+                    if walk_forward_results:
+                        st.metric("Walk-Forward MAPE", f"{walk_forward_results['walk_forward_mape']:.1f}%")
+                        st.metric("Predictions Made", walk_forward_results['predictions_made'])
+                        
+                        # Performance assessment using walk-forward results
+                        wf_mape = walk_forward_results['walk_forward_mape']
+                        if wf_mape < 10:
+                            performance = "Good"
+                        elif wf_mape < 25:
+                            performance = "Moderate"
+                        else:
+                            performance = "Poor"
+                        
+                        st.caption(f"**Realistic Performance: {performance}**")
+                        st.caption("Walk-forward simulates real-world usage")
+                    else:
+                        st.info("Walk-forward evaluation not available")
+                
+                # Show comparison if both available
+                if evaluation_results and walk_forward_results:
+                    st.markdown("---")
+                    standard_mape = evaluation_results['MAPE']
+                    wf_mape = walk_forward_results['walk_forward_mape']
+                    
+                    if wf_mape > standard_mape * 1.5:
+                        st.warning(f"Walk-forward MAPE ({wf_mape:.1f}%) significantly higher than standard evaluation ({standard_mape:.1f}%) - model may be overfitting")
+                    elif abs(wf_mape - standard_mape) < 2:
+                        st.success("Both evaluation methods show consistent results - model appears stable")
+                    else:
+                        st.info("Moderate difference between evaluation methods - consider walk-forward as more realistic")
             
-            # eval_col1, eval_col2 = st.columns([1, 2])
-            
-            # with eval_col1:
-            #     if st.button("Evaluate on 2024+ Data", key="eval_button"):
-            #         try:
-            #             with st.spinner("Running evaluation on 2024+ data..."):
-            #                 # Check if we have sufficient 2024+ data first
-            #                 test_data_check = current_data[pd.to_datetime(current_data['date']) >= '2024-01-01']
-                            
-            #                 if len(test_data_check) == 0:
-            #                     st.error("No data available from 2024 onwards for evaluation")
-            #                     st.info("This evaluation requires actual data from 2024+ to test prediction accuracy against recent outcomes")
-            #                 elif len(test_data_check) < 3:
-            #                     st.warning(f"Limited test data: Only {len(test_data_check)} points from 2024+")
-            #                     st.info("More recent data points would provide more reliable evaluation results")
-            #                 else:
-            #                     # Proceed with evaluation
-            #                     if use_multi_indicator:
-            #                         # For multi-indicator, evaluate on single indicator for consistency
-            #                         eval_predictor = MacroPredictor(selected_indicator)
-            #                         metrics, eval_status = PredictionEvaluator.evaluate_model_with_date_split(
-            #                             current_data, eval_predictor, selected_indicator, test_start_date='2024-01-01'
-            #                         )
-            #                     else:
-            #                         metrics, eval_status = PredictionEvaluator.evaluate_model_with_date_split(
-            #                             current_data, predictor, selected_indicator, test_start_date='2024-01-01'
-            #                         )
-                                
-            #                     # Enhanced results display
-            #                     if metrics and isinstance(metrics, dict) and 'MAE' in metrics:
-            #                         st.success(f"Status: {eval_status}")
-                                    
-            #                         # Display metrics with enhanced formatting
-            #                         metric_cols = st.columns(4)
-            #                         with metric_cols[0]:
-            #                             st.metric("MAE", f"{metrics['MAE']:.2f}")
-            #                         with metric_cols[1]:
-            #                             st.metric("RMSE", f"{metrics['RMSE']:.2f}")
-            #                         with metric_cols[2]:
-            #                             mape_display = f"{metrics['MAPE']:.1f}%" if metrics['MAPE'] < 1000 else "High"
-            #                             st.metric("MAPE", mape_display)
-            #                         with metric_cols[3]:
-            #                             st.metric("Test Points", metrics['test_points'])
-                                    
-            #                         # Evaluation context
-            #                         st.caption(f"Evaluation Context:")
-            #                         st.caption(f"• Trained on: {metrics.get('train_periods', 'N/A')} points before {metrics.get('test_start_date', '2024-01-01')}")
-            #                         st.caption(f"• Tested on: {metrics['test_periods_used']} points from {metrics.get('test_start_date', '2024-01-01')} to {metrics.get('test_end_date', 'latest')}")
-            #                         st.caption(f"• Performance: {'Good' if metrics['MAPE'] < 10 else 'Moderate' if metrics['MAPE'] < 25 else 'Poor'} (MAPE: {metrics['MAPE']:.1f}%)")
-                                    
-            #                     else:
-            #                         error_msg = str(metrics) if metrics else eval_status
-            #                         st.error(f"Evaluation failed: {error_msg}")
-                                    
-            #                         # Provide helpful guidance
-            #                         if "2024" in error_msg or "test data" in error_msg.lower():
-            #                             st.info("This indicator may not have sufficient 2024+ data for evaluation. Try with a different indicator or check data coverage.")
-            #                         else:
-            #                             st.info("Evaluation requires historical data patterns. Some indicators may be too volatile or have insufficient data for reliable evaluation.")
-                        
-            #         except Exception as e:
-            #             st.error(f"Evaluation error: {str(e)}")
-            #             st.info("Try refreshing the page or selecting a different indicator/country combination.")
-            
-            # with eval_col2:
-            #     # Enhanced Model information
-            #     with st.expander("Model Information & Guidance", expanded=True):
-            #         st.write(f"**Model Used:** {predictions['model'].iloc[0]}")
-            #         st.write(f"**Forecast Horizon:** {forecast_periods} periods")
-            #         st.write(f"**Training Data Points:** {len(current_data)}")
+            # Model information
+            with st.expander("Model Information & Guidance", expanded=False):
+                st.write(f"**Model Used:** {predictions['model'].iloc[0]}")
+                st.write(f"**Forecast Horizon:** {forecast_periods} periods")
+                st.write(f"**Training Data Points:** {len(current_data)}")
+                
+                # Model-specific explanations
+                model_name = predictions['model'].iloc[0]
+                if 'Prophet' in model_name:
+                    st.info("**Prophet Model**: Advanced time series model that automatically detects seasonal patterns, handles missing data, and provides confidence intervals. Best for data with clear seasonality.")
                     
-            #         # Model-specific explanations
-            #         model_name = predictions['model'].iloc[0]
-            #         if 'Prophet' in model_name:
-            #             st.info("**Prophet Model**: Advanced time series model that automatically detects seasonal patterns, handles missing data, and provides confidence intervals. Best for data with clear seasonality.")
-                        
-            #         elif 'Simple' in model_name:
-            #             st.info("**Simple Trend Model**: Linear trend continuation with basic seasonal patterns. Uses recent historical trend to project future values. Reliable for stable, trending data.")
-                        
-            #         elif 'ARIMA' in model_name:
-            #             st.info("**ARIMA Model**: Statistical time series model that uses autoregression, differencing, and moving averages. Good for stationary time series with complex patterns.")
-                        
-            #         elif 'Multi' in model_name:
-            #             st.info("**Multi-Indicator Model**: Uses related economic variables as additional features to improve forecast accuracy. More sophisticated but requires aligned data across indicators.")
+                elif 'Simple' in model_name:
+                    st.info("**Simple Trend Model**: Linear trend continuation with basic seasonal patterns. Uses recent historical trend to project future values. Reliable for stable, trending data.")
                     
-            #         # Add multi-indicator feature info
-            #         if use_multi_indicator and hasattr(predictor, 'feature_indicators'):
-            #             related_indicators = predictor.feature_indicators
-            #             if related_indicators:
-            #                 available_features = [ind for ind in related_indicators if ind in country_data and not country_data[ind].empty]
-            #                 st.write(f"**Features Used:** {', '.join(available_features) if available_features else 'None (fell back to single indicator)'}")
-                    
-            #         # Data info with enhanced details
-            #         data_start = current_data['date'].min().strftime('%Y-%m-%d')
-            #         data_end = current_data['date'].max().strftime('%Y-%m-%d')
-            #         data_span_years = (current_data['date'].max() - current_data['date'].min()).days / 365.25
-                    
-            #         st.write(f"**Data Coverage:** {data_start} to {data_end} ({data_span_years:.1f} years)")
-                    
-            #         # Usage recommendations
-            #         st.markdown("**Usage Recommendations:**")
-            #         if forecast_periods <= 6:
-            #             st.text("Short-term forecasts: Generally reliable")
-            #         elif forecast_periods <= 12:  
-            #             st.text("Medium-term forecasts: Use with caution")
-            #         else:
-            #             st.text("Long-term forecasts: High uncertainty")
+                elif 'ARIMA' in model_name:
+                    st.info("**ARIMA Model**: Statistical time series model that uses autoregression, differencing, and moving averages. Good for stationary time series with complex patterns.")
+                
+                # Data info
+                data_start = current_data['date'].min().strftime('%Y-%m-%d')
+                data_end = current_data['date'].max().strftime('%Y-%m-%d')
+                data_span_years = (current_data['date'].max() - current_data['date'].min()).days / 365.25
+                
+                st.write(f"**Data Coverage:** {data_start} to {data_end} ({data_span_years:.1f} years)")
+                
+                # Usage recommendations
+                st.markdown("**Usage Recommendations:**")
+                if forecast_periods <= 6:
+                    st.text("Short-term forecasts | Generally reliable")
+                elif forecast_periods <= 12:  
+                    st.text("Medium-term forecasts | Use with caution")
+                else:
+                    st.text("Long-term forecasts | High uncertainty")
 
         else:
             st.error(f"Prediction failed: {status}")
