@@ -121,19 +121,19 @@ This opens the local-hosted interactive web dashboard for data visualization.
 | File | Purpose | Description |
 |------|---------|-------------|
 | `macro_sources.py` | **Data source definitions** | Macroeconomic and Market sources with API endpoints(if have) |
-| `worldbank_data.py` | World Bank data integration | Additional standardized GDP data |
+| `worldbank_data.py` | World Bank data integration | Additional standardized annual GDP data |
 
 #### **🧹 Data Cleaning & Processing (all being included in main_runner.py)**
-| File | Purpose | When to Use |
-|------|---------|-------------|
+| File | Purpose |
+|------|---------|
 | `singapore_data_cleaner.py` | Clean Singapore Excel files |
 | `singapore_standardizer.py` | Convert Singapore data to vertical format |
 | `fred_data_cleaner.py` | Clean data from FRED sources(filter to 2000+) |
 | `table_data_scraper.py` | Generic table data extraction from web sources |
 
 #### **🌍 Country-Specific Data Extractors (all being called in main_runner.py)**
-| File | Purpose | Coverage |
-|------|---------|-----------|
+| File | Purpose |
+|------|---------|
 | `malaysia_data_extractor.py` | Malaysia economic data extraction |
 | `thailand_data_extractor.py` | Thailand economic data extraction |
 | `vietnam_data_extractor.py` | Vietnam economic data extraction |
@@ -141,16 +141,15 @@ This opens the local-hosted interactive web dashboard for data visualization.
 ### **📰 News & Sentiment Analysis**
 | File | Purpose | Functionality |
 |------|---------|---------------|
-| `news_scraper_selenium.py` | Web scraping for news articles |
-| `news_analyzer.py` | News content analysis and sentiment scoring |
-| `news_sentiment_standardization.py` | Standardize sentiment analysis output |
+| `news_scraper_selenium.py` | Web scraping for news articles | Scrape all articles for each news sources page, with auto-scroll function for pages with infinite scroll, output as JSON file |
+| `news_analyzer.py` | News content analysis and output | Perform analysis with multiple agents and output the result into the master excel file |
+| `news_sentiment_standardization.py` | Generate country-topic sentiment matrix | Convert the data in master news file into a country-topic-cross-product sentiment matrix with date being the index |
 
 ### **💬 Forum Analysis**
 | File | Purpose | Functionality |
 |------|---------|---------------|
-| `forum_scraper.py` | Extract discussions from forum threads | Web scraping, content extraction |
-| `forum_analyzer.py` | Analyze forum discussions for sentiment and topics by week | NLP, sentiment analysis | (still fixing, wait for upload)
-| `forum_visualizer.py` | Visualize forum sentiment and trends | Charts, trend analysis |
+| `forum_scraper.py` | Extract discussions from forum threads | Scrape all posts starting from target date and output as JSON file | 
+| `forum_analyzer.py` | Analyze forum discussions for sentiment and topics by week | Group posts by week, perform analysis with agents, and output the result in the master excel file (still fixing, wait for upload) |
 
 ### **📋 Consolidate Analysis**
 | File | Purpose | Functionality |
@@ -228,6 +227,7 @@ This opens the local-hosted interactive web dashboard for data visualization.
 
 ### **Analysis Output (in `./news_analysis_output/` and `./forum_analysis_output/`):**
 - `master_news_analysis.xlsx` - Consolidated news analysis outputs (include summary, region, topic, sentiment, and impact)
+- `country_topic_sentiment.xlsx` - Country-topic cross product sentiment matrix with date being the index
 - `master_forum_analysis.xlsx` - Consolidated forum threads analysis outputs (include summary, topic, and sentiment)
 
 ### **News/Forum Scraping Output (will be in `./news_data/` and `./forum_data/` after running):**
