@@ -3,6 +3,85 @@
 ---
 ## 🎯 Quick Start
 
+### 0. .env File Setup
+Before using this project, you need to have a .env file setup in the code folder, including the following things:
+```bash
+# =============================================================================
+# API CONFIGURATION
+# =============================================================================
+
+# OpenAI API Key (Required for news analysis and agentic framework)
+OPENAI_API_KEY=your_openai_api_key_here
+
+# Alternative: Ollama Configuration (for local LLM deployment)
+# OPENAI_API_KEY=sk-test
+# OPENAI_API_BASE=http://localhost:11434
+# OPENAI_MODEL_NAME=ollama/gemma3:4b-it-qat
+
+# FRED API Configuration (Required for US, EU, Japan economic data)
+FRED_API_KEY=your_fred_api_key_here
+
+# =============================================================================
+# CREWAI CONFIGURATION
+# =============================================================================
+
+# Disable CrewAI telemetry
+CREWAI_DISABLE_TELEMETRY=true
+
+# CrewAI Model Configuration
+CREWAI_MODEL_NAME=gpt-4o-mini
+
+# CrewAI Memory Configuration
+CREWAI_MEMORY_TYPE=short_term
+
+# =============================================================================
+# NEWS ANALYSIS CONFIGURATION
+# =============================================================================
+
+# News Data Folder
+NEWS_DATA_FOLDER=./news_data
+
+# News Analysis Output Folder
+NEWS_ANALYSIS_OUTPUT_FOLDER=./news_analysis_output
+
+# News Sources Rate Limiting (seconds between requests)
+NEWS_SCRAPING_DELAY=10
+
+# =============================================================================
+# AGENTIC FRAMEWORK CONFIGURATION
+# =============================================================================
+
+# Agent Execution Mode (sequential, parallel, hierarchical)
+AGENT_EXECUTION_MODE=sequential
+
+# Agent Memory Configuration
+AGENT_MEMORY_ENABLED=false
+AGENT_MEMORY_PROVIDER=local
+AGENT_CONVERSATION_LOG=true
+
+# Agent Collaboration Settings
+AGENT_DELEGATION_ENABLED=true
+AGENT_MAX_ITERATIONS=2
+
+# =============================================================================
+# TESTING CONFIGURATION
+# =============================================================================
+
+# IMPORTANT: Set to false to process ALL articles (Turn it on for testing purpose)
+TESTING_MODE=false
+MAX_ARTICLES_FOR_TESTING=3 
+
+# =============================================================================
+# LOGGING CONFIGURATION
+# =============================================================================
+
+# Set logging level (DEBUG, INFO, WARNING, ERROR)
+LOG_LEVEL=INFO
+
+# Enable agent conversation logging
+AGENT_CONVERSATION_LOG=true
+```
+
 ### 1. Macroeconomic and Market Data Pipeline
 ```bash
 python main_runner.py
