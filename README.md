@@ -18,7 +18,7 @@ OPENAI_API_KEY=your_openai_api_key_here
 # OPENAI_API_BASE=http://localhost:11434
 # OPENAI_MODEL_NAME=ollama/gemma3:4b-it-qat
 
-# FRED API Configuration (Required for US, EU, Japan economic data)
+# FRED API Configuration (Required for macroeconomic data extraction)
 FRED_API_KEY=your_fred_api_key_here
 
 # =============================================================================
@@ -121,40 +121,39 @@ This opens the interactive web dashboard for data visualization.
 | `rule_based_extraction_tools.py` | Data extraction + Excel export | Used by runner |
 | `consolidate_analysis.py` | Consolidates analysis across different data sources | Standalone |
 
-### **📊 Data Sources & Configuration**
+### **📊 Macroeconomic and Market Data Sources & Configuration**
 | File | Purpose | Description |
 |------|---------|-------------|
-| `macro_sources.py` | **Data source definitions** | Singapore, US, EU, Japan sources with API endpoints |
-| `visualization_config.py` | Shared utilities for all visualizations | Colors, formatting, data processing |
-| `worldbank_data.py` | World Bank data integration | Additional economic indicators |
+| `macro_sources.py` | **Data source definitions** | Macroeconomic and Market sources with API endpoints(if have) |
+| `worldbank_data.py` | World Bank data integration | Additional standardized GDP data |
 
-### **🧹 Data Cleaning & Processing**
+### **🧹 Data Cleaning & Processing (all being included in main_runner.py)**
 | File | Purpose | When to Use |
 |------|---------|-------------|
-| `singapore_data_cleaner.py` | Clean Singapore Excel files | After data extraction |
-| `singapore_standardizer.py` | Convert Singapore data to vertical format | After cleaning |
-| `fred_data_cleaner.py` | Clean US/EU/Japan data (filter to 2000+) | After data extraction |
-| `table_data_scraper.py` | Generic table data extraction from web sources | As needed |
+| `singapore_data_cleaner.py` | Clean Singapore Excel files |
+| `singapore_standardizer.py` | Convert Singapore data to vertical format |
+| `fred_data_cleaner.py` | Clean data from FRED sources(filter to 2000+) |
+| `table_data_scraper.py` | Generic table data extraction from web sources |
 
-### **🌍 Country-Specific Data Extractors**
+### **🌍 Country-Specific Data Extractors (all being called in main_runner.py)**
 | File | Purpose | Coverage |
 |------|---------|-----------|
-| `malaysia_data_extractor.py` | Malaysia economic data extraction | GDP, CPI, interest rates |
-| `thailand_data_extractor.py` | Thailand economic data extraction | GDP, CPI, population |
-| `vietnam_data_extractor.py` | Vietnam economic data extraction | GDP, inflation, trade data |
+| `malaysia_data_extractor.py` | Malaysia economic data extraction |
+| `thailand_data_extractor.py` | Thailand economic data extraction |
+| `vietnam_data_extractor.py` | Vietnam economic data extraction |
 
 ### **📰 News & Sentiment Analysis**
 | File | Purpose | Functionality |
 |------|---------|---------------|
-| `news_scraper_selenium.py` | Web scraping for news articles | Selenium-based scraping |
-| `news_analyzer.py` | News content analysis and sentiment scoring | Text processing, sentiment analysis |
-| `news_sentiment_standardization.py` | Standardize sentiment analysis output | Data normalization |
+| `news_scraper_selenium.py` | Web scraping for news articles |
+| `news_analyzer.py` | News content analysis and sentiment scoring |
+| `news_sentiment_standardization.py` | Standardize sentiment analysis output |
 
 ### **💬 Forum Analysis**
 | File | Purpose | Functionality |
 |------|---------|---------------|
 | `forum_scraper.py` | Extract discussions from forum threads | Web scraping, content extraction |
-| `forum_analyzer.py` | Analyze forum discussions for sentiment and topics by week | NLP, sentiment analysis |
+| `forum_analyzer.py` | Analyze forum discussions for sentiment and topics by week | NLP, sentiment analysis | (still fixing, wait for upload)
 | `forum_visualizer.py` | Visualize forum sentiment and trends | Charts, trend analysis |
 
 ### **🔮 Prediction & Testing**
@@ -167,8 +166,10 @@ This opens the interactive web dashboard for data visualization.
 |------|---------|------------|
 | `streamlit_dashboard.py` | **Main web dashboard** | `streamlit run streamlit_dashboard.py` |
 | `dashboard.py` | Alternative dashboard loading | `python dashboard.py` |
-| `cross_country_visualizer.py` | Multi-country economic comparison | `python cross_country_visualizer.py` |
-| `market_indices_visualizer.py` | Financial market analysis | `python market_indices_visualizer.py` |
+| `visualization_config.py` | Shared utilities for all visualizations | Colors, formatting, data processing |
+
+| `cross_country_visualizer.py` | Cross-country economic data comparison | `python cross_country_visualizer.py` |
+| `market_indices_visualizer.py` | Market data visulization with comparison| `python market_indices_visualizer.py` |
 | `news_visualizer.py` | News analysis result visualization | `python news_visualizer.py` |
 | `forum_visualizer.py` | Forum discussion analysis and visualization | `python forum_visualizer.py` |
 
@@ -178,16 +179,16 @@ This opens the interactive web dashboard for data visualization.
 
 ### **Macroeconomic Data:**
 - **Singapore** (via data.gov.sg API): GDP, CPI, Interest Rate, Population, Property Price
-- **China** (via various sources): GDP, CPI, Industrial Production
-- **United States** (via FRED API): GDP, CPI, Federal Funds Rate, Population, Mortgage Rate, Property Price
-- **Euro Area** (via FRED API): GDP, HICP, ECB Rate, Population, Property Price
-- **United Kingdom** (via various sources): GDP, CPI, Interest Rate
-- **Japan** (via FRED API): GDP, CPI, Population, Property Price
-- **Malaysia** (via custom extractor): GDP, CPI, Interest Rates
-- **Thailand** (via custom extractor): GDP, CPI, Population
-- **Vietnam** (via custom extractor): GDP, Inflation, Trade Data
-- **India** (via various sources): GDP, CPI, Interest Rates
-- **Indonesia** (via various sources): GDP, CPI, Exchange Rate
+- **China** (via FRED API + IMF): GDP, CPI, Interest Rate(Call Money/Interbank Rate), Population, Property Price
+- **United States** (via FRED API): GDP, CPI, Interest Rate(Federal Funds Rate), Population, Property Price
+- **Euro Area** (via FRED API): GDP, CPI(HICP), Interest Rate(ECB Deposit Facility Rate), Population, Property Price
+- **United Kingdom** (via FRED API): GDP, CPI, Interest Rate(Call Money/Interbank Rate), Population, Property Price
+- **Japan** (via FRED API): GDP, CPI, Interest Rate(Call Money/Interbank Rate), Population, Property Price
+- **India** (via FRED API): GDP, CPI, Interest Rate(Call Money/Interbank Rate), Population, Property Price
+- **Malaysia** (via data.gov.my API): GDP, CPI, Interest Rate(Overnight Policy Rate), Population, Property Price
+- **Indonesia** (via FRED API): GDP, CPI, Interest Rate(Call Money/Interbank Rate), Population, Property Price
+- **Thailand** (via FRED API + IMF + Webscraping): GDP, CPI, Interest Rate(THOR), Population, Property Price
+- **Vietnam** (via FRED API + WorldBank): GDP, CPI, Population
 
 ### **Financial Market Data:**
 - **Global Stock Market Indices** (via Yahoo Finance):
