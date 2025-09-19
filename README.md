@@ -100,14 +100,11 @@ python forum_scraper.py
 python forum_analyzer.py
 ```
 
-### 3. Launch the Dashboard (with existing data sheets)
+### 3. Launch the Dashboard (needs data result sheets to be present in the corresponding folder)
 ```bash
 streamlit run streamlit_dashboard.py
 ```
-This opens the interactive web dashboard for data visualization.
-
-(Note: You need to have your own FRED API key and put it in .env file with this format: FRED_API_KEY=...)
-
+This opens the local-hosted interactive web dashboard for data visualization.
 ---
 
 ## 📂 Code Structure & Categories
@@ -119,15 +116,14 @@ This opens the interactive web dashboard for data visualization.
 | `main_pipeline.py` | Core validation logic (HTTP/API based) | Used by runner |
 | `api_first_validator.py` | Smart API validation with yfinance support | Used by pipeline |
 | `rule_based_extraction_tools.py` | Data extraction + Excel export | Used by runner |
-| `consolidate_analysis.py` | Consolidates analysis across different data sources | Standalone |
 
-### **📊 Macroeconomic and Market Data Sources & Configuration**
+#### **📊 Macroeconomic and Market Data Sources & Configuration**
 | File | Purpose | Description |
 |------|---------|-------------|
 | `macro_sources.py` | **Data source definitions** | Macroeconomic and Market sources with API endpoints(if have) |
 | `worldbank_data.py` | World Bank data integration | Additional standardized GDP data |
 
-### **🧹 Data Cleaning & Processing (all being included in main_runner.py)**
+#### **🧹 Data Cleaning & Processing (all being included in main_runner.py)**
 | File | Purpose | When to Use |
 |------|---------|-------------|
 | `singapore_data_cleaner.py` | Clean Singapore Excel files |
@@ -135,7 +131,7 @@ This opens the interactive web dashboard for data visualization.
 | `fred_data_cleaner.py` | Clean data from FRED sources(filter to 2000+) |
 | `table_data_scraper.py` | Generic table data extraction from web sources |
 
-### **🌍 Country-Specific Data Extractors (all being called in main_runner.py)**
+#### **🌍 Country-Specific Data Extractors (all being called in main_runner.py)**
 | File | Purpose | Coverage |
 |------|---------|-----------|
 | `malaysia_data_extractor.py` | Malaysia economic data extraction |
@@ -156,10 +152,15 @@ This opens the interactive web dashboard for data visualization.
 | `forum_analyzer.py` | Analyze forum discussions for sentiment and topics by week | NLP, sentiment analysis | (still fixing, wait for upload)
 | `forum_visualizer.py` | Visualize forum sentiment and trends | Charts, trend analysis |
 
+### **📋 Consolidate Analysis**
+| File | Purpose | Functionality |
+|------|---------|---------------|
+| `consolidate_analysis.py` | Consolidates analysis across different data sources | Customizable consolidate data sheet with download option and correlation analysis |
+
 ### **🔮 Prediction & Testing**
 | File | Purpose | Functionality |
 |------|---------|---------------|
-| `prediction_analysis_test.py` | Economic prediction modeling and testing | ML models, backtesting |
+| `prediction_analysis_test.py` | Economic prediction modeling and testing | Prophet and ARIMA(SARIMA) models for prediction, backtesting with data since 2024-01-01 |
 
 ### **📈 Visualization & Analysis**
 | File | Purpose | How to Run |
@@ -211,7 +212,7 @@ This opens the interactive web dashboard for data visualization.
 - **Business Times Singapore**
 
 ### **Forum Data:**
-- **HardwareZone**
+- **HardwareZone Forum Threads (Housing Related)**
 
 ### **Additional Macroeconomic Data:**
 - **World Bank Data** (via API): Annual GDP (in Trillion USD), GDP per Capita(in USD)
