@@ -168,7 +168,6 @@ This opens the local-hosted interactive web dashboard for data visualization.
 | `streamlit_dashboard.py` | **Main web dashboard** | `streamlit run streamlit_dashboard.py` |
 | `dashboard.py` | Alternative dashboard loading | `python dashboard.py` |
 | `visualization_config.py` | Shared utilities for all visualizations | Colors, formatting, data processing |
-
 | `cross_country_visualizer.py` | Cross-country economic data comparison | `python cross_country_visualizer.py` |
 | `market_indices_visualizer.py` | Market data visulization with comparison| `python market_indices_visualizer.py` |
 | `news_visualizer.py` | News analysis result visualization | `python news_visualizer.py` |
