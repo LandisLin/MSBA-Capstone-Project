@@ -638,10 +638,32 @@ def _load_existing_sheet_data(file_path: str, sheet_name: str) -> List[Dict]:
         return []
 
 def _create_content_sheet(wb: Workbook, sheet_info: List[Dict]):
-    """Update the content sheet with navigation - PRESERVE FORMATTING"""
+    """Create or update the content sheet with navigation - handles both new and existing files"""
     
-    # Get existing Contents sheet (assumes it already exists)
-    content_ws = wb['Contents']
+    # Check if Contents sheet exists, create if not
+    if 'Contents' not in wb.sheetnames:
+        print("📝 Creating new Contents sheet")
+        content_ws = wb.create_sheet(title='Contents', index=0)  # Insert as first sheet
+        
+        # Create the header structure for new sheet
+        # Title row
+        content_ws['A1'] = 'News Analysis Master File'
+        content_ws.merge_cells('A1:G2')
+        title_cell = content_ws['A1']
+        title_cell.font = Font(size=16, bold=True, color="FFFFFF")
+        title_cell.fill = PatternFill(start_color="1F4E79", end_color="1F4E79", fill_type="solid")
+        title_cell.alignment = Alignment(horizontal="center", vertical="center")
+        
+        # Headers in row 3
+        headers = ['No.', 'News Source', 'Articles', 'Date Range', 'Last Update', 'Sheet Link', 'Source URL']
+        for col, header in enumerate(headers, 1):
+            cell = content_ws.cell(row=3, column=col, value=header)
+            cell.font = Font(bold=True)
+            cell.fill = PatternFill(start_color="D9E1F2", end_color="D9E1F2", fill_type="solid")
+            cell.alignment = Alignment(horizontal="center")
+    else:
+        print("📝 Updating existing Contents sheet")
+        content_ws = wb['Contents']
     
     # Clear only data rows (keep title and headers)
     max_row = content_ws.max_row
@@ -662,15 +684,11 @@ def _create_content_sheet(wb: Workbook, sheet_info: List[Dict]):
         # Sheet link (preserve existing hyperlink formatting)
         sheet_link_cell = content_ws.cell(row=row, column=6, value=f"Go to {info['source']}")
         sheet_link_cell.hyperlink = f"#{info['sheet_link']}!A1"
-        # if not sheet_link_cell.font.color:  # Only set if not already formatted
-        #     sheet_link_cell.font = Font(color='0000FF', underline='single')
         sheet_link_cell.font = Font(color='0000FF', underline='single')
         
         # Website URL (preserve existing hyperlink formatting)
         website_cell = content_ws.cell(row=row, column=7, value=info['website'])
         website_cell.hyperlink = info['website']
-        # if not website_cell.font.color:  # Only set if not already formatted
-        #     website_cell.font = Font(color='0000FF', underline='single')
         website_cell.font = Font(color='0000FF', underline='single')
 
 def _auto_adjust_content_sheet_widths(content_ws, sheet_info: List[Dict]):
