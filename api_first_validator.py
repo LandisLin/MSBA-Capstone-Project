@@ -397,7 +397,13 @@ def test_yfinance_symbols():
         ("Shanghai Composite", "000001.SS"),
         ("Singapore STI", "^STI"),
         ("VIX", "^VIX"),
-        ("EURO STOXX 50", "^STOXX50E")
+        ("EURO STOXX 50", "^STOXX50E"),
+        ("FTSE 100", "^FTSE"),
+        ("BSE Sensex", "^BSESN"),
+        ("Jakarta Composite", "^JKSE"),
+        ("FTSE Bursa Malaysia KLCI", "^KLSE"),
+        ("SET Index", "^SET.BK"),
+        ("VN-Index", "VNINDEX.VN"),
     ]
     
     validator = EnhancedAPIValidator()
