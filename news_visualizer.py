@@ -178,6 +178,10 @@ class NewsDataVisualizer:
                     df.columns = new_columns
                     print(f"🔄 Applied standard column names: {list(df.columns)}")
             
+            # # ONLY ADD THIS: Apply standardization to handle underscore vs space differences
+            # df = self._standardize_column_names(df)
+            # print(f"🔄 Standardized columns: {list(df.columns)}")
+
             # Clean the data
             # Remove rows where Title is NaN or empty
             original_len = len(df)
@@ -525,6 +529,70 @@ class NewsDataVisualizer:
         else:
             print("❌ No sentiment data available for chart")
             return None
+
+    # def create_regional_sentiment_chart(self):
+    #     """Create regional sentiment analysis chart with individual countries"""
+    #     regional_data = []
+        
+    #     for source, df in self.news_data.items():
+    #         if 'Region' in df.columns and 'Sentiment Score' in df.columns:
+    #             try:
+    #                 # Expand regions before processing
+    #                 df_expanded = self.expand_regions_for_analysis(df)
+                    
+    #                 # Clean and process data
+    #                 df_clean = df_expanded.copy()
+    #                 df_clean['Sentiment Score'] = pd.to_numeric(df_clean['Sentiment Score'], errors='coerce')
+    #                 df_clean = df_clean.dropna(subset=['Region', 'Sentiment Score'])
+                    
+    #                 if len(df_clean) > 0:
+    #                     regional_sentiment = df_clean.groupby('Region')['Sentiment Score'].agg(['mean', 'count']).reset_index()
+    #                     regional_sentiment['Source'] = self.get_news_source_display_name(source)
+                        
+    #                     for _, row in regional_sentiment.iterrows():
+    #                         regional_data.append({
+    #                             'Region': row['Region'],
+    #                             'Avg_Sentiment': row['mean'],
+    #                             'Article_Count': row['count'],
+    #                             'Source': row['Source']
+    #                         })
+    #             except Exception as e:
+    #                 print(f"❌ Error processing regional sentiment for {source}: {e}")
+    #                 continue
+        
+    #     if regional_data:
+    #         try:
+    #             regional_df = pd.DataFrame(regional_data)
+                
+    #             # Aggregate across sources for overall regional sentiment
+    #             overall_regional = regional_df.groupby('Region').agg({
+    #                 'Avg_Sentiment': 'mean',
+    #                 'Article_Count': 'sum'
+    #             }).reset_index()
+                
+    #             fig = px.bar(overall_regional, x='Region', y='Avg_Sentiment',
+    #                         title="🌍 Average Sentiment Score by Region",
+    #                         color='Avg_Sentiment',
+    #                         color_continuous_scale=['red', 'yellow', 'green'],
+    #                         color_continuous_midpoint=0)
+                
+    #             # Add article count as hover info
+    #             fig.update_traces(
+    #                 hovertemplate="<b>%{x}</b><br>Avg Sentiment: %{y:.2f}<br>Articles: %{customdata}<extra></extra>",
+    #                 customdata=overall_regional['Article_Count']
+    #             )
+                
+    #             fig.update_layout(height=400)
+    #             fig.update_yaxes(title="Average Sentiment Score", range=[-1, 1])
+    #             fig.add_hline(y=0, line_dash="dash", line_color="gray", opacity=0.7)
+                
+    #             return fig
+    #         except Exception as e:
+    #             print(f"❌ Error creating regional sentiment chart: {e}")
+    #             return None
+    #     else:
+    #         print("❌ No regional sentiment data available")
+    #         return None
 
     def create_regional_sentiment_chart(self):
         """FIXED: Calculate regional sentiment correctly with all improvements"""
