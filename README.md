@@ -92,6 +92,7 @@ Run the 2nd option "Everything Complete Pipeline" for the complete pipeline (Val
 ### 2. News and Forum Data Pipeline
 ```bash
 # News scraping and analysis
+python agentic_news_framework.py (This combines news scraping and analyzing into one agentic flow.)
 python news_scraper_selenium.py
 python news_analyzer.py
 
@@ -141,6 +142,7 @@ This opens the local-hosted interactive web dashboard for data visualization.
 ### **📰 News & Sentiment Analysis**
 | File | Purpose | Functionality |
 |------|---------|---------------|
+| `agentic_news_framework.py` | Agentic workflow for automatic news scraping and analyzing | Scrap news articles -> Perform analysis -> Output the results |
 | `news_scraper_selenium.py` | Web scraping for news articles | Scrape all articles for each news sources page, with auto-scroll function for pages with infinite scroll, output as JSON file |
 | `news_analyzer.py` | News content analysis and output | Perform analysis with multiple agents and output the result into the master excel file |
 | `news_sentiment_standardization.py` | Generate country-topic sentiment matrix | Convert the data in master news file into a country-topic-cross-product sentiment matrix with date being the index |
