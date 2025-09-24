@@ -70,7 +70,7 @@ NEWS_SOURCES = {
             "time_selector": "time",
             "datetime_attribute": "datetime"
         },
-        "skip_links": [],
+        "skip_links": ["/audio", "/video"],
         "anti_bot_delay": 10
     },
     "yahoo_market": {
@@ -93,7 +93,7 @@ NEWS_SOURCES = {
             "time_selector": "time",
             "datetime_attribute": "datetime"
         },
-        "skip_links": [],
+        "skip_links": ["/audio", "/video"],
         "anti_bot_delay": 10
     },
 
@@ -251,6 +251,10 @@ async def fetch_article_content_yahoo(crawler, article_url: str, source_config: 
             full_url = urljoin(source_config["website_base"], article_url)
         else:
             full_url = article_url
+        
+        if ('finance.yahoo.com/video/' in full_url or 'finance.yahoo.com/audio/' in full_url):
+            print(f"⏭️ Skipping Yahoo video/audio URL: {full_url}")
+            return None
             
         result = await crawler.arun(
             url=full_url,
@@ -322,9 +326,26 @@ async def fetch_article_content_business_times(crawler, article_url: str, source
                 cache_mode=CacheMode.BYPASS,
                 delay_before_return_html=4,  # Reduced wait time
                 js_code=[
-                    "await new Promise(resolve => setTimeout(resolve, 1500));",
-                    "window.scrollTo(0, document.body.scrollHeight);",
+                    "await new Promise(resolve => setTimeout(resolve, 2000));",
+
+                    # Try to close any subscription popups/overlays
+                    """
+                    // Close potential subscription popups
+                    const closeButtons = document.querySelectorAll('[aria-label*="close"], [aria-label*="Close"], .close, .modal-close, button[data-testid*="close"]');
+                    closeButtons.forEach(btn => {
+                        try { btn.click(); } catch(e) {}
+                    });
+                    
+                    // Hide overlay elements that might block content
+                    const overlays = document.querySelectorAll('.overlay, .modal, .popup, [data-testid*="paywall"], [class*="subscription"]');
+                    overlays.forEach(el => {
+                        try { el.style.display = 'none'; } catch(e) {}
+                    });
+                    """,
+
                     "await new Promise(resolve => setTimeout(resolve, 1000));",
+                    "window.scrollTo(0, document.body.scrollHeight);",
+                    "await new Promise(resolve => setTimeout(resolve, 1500));",
                     "window.scrollTo(0, 0);"
                 ]
             )
@@ -339,12 +360,12 @@ async def fetch_article_content_business_times(crawler, article_url: str, source
         print(f"🔍 DEBUG: paragraph-component count: {paragraph_component_count}")
         
         # METHOD 1: Primary method - data-testid="paragraph-component"
-        article_main = soup.find("div", attrs={"data-testid": "article-paragraphs-component"})
+        article_main = soup.find("div", attrs={"data-testid": "article-body-container"})
         if not article_main:
             print("⚠️ Main article content not found")
-            return []
+            return None
 
-        paragraph_components = article_main.find_all(attrs={"data-testid": "paragraph-component"})
+        paragraph_components = article_main.find_all(attrs={"data-testid": "article-paragraph-component"})
         print(f"📍 Found {len(paragraph_components)} paragraph-component elements")
         
         for i, element in enumerate(paragraph_components):
@@ -637,7 +658,7 @@ if __name__ == "__main__":
     # asyncio.run(main("bbc"))                    # Scrape BBC only
     # asyncio.run(main("yahoo_economic"))         # Scrape Yahoo Economic only
     # asyncio.run(main("yahoo_market"))           # Scrape Yahoo Market only
-    asyncio.run(main("business_times_sg"))       # Scrape Business Times Singapore only
+    # asyncio.run(main("business_times_sg"))       # Scrape Business Times Singapore only
     
     # Test all sources:
-    # asyncio.run(scrape_all_sources())            # Scrape all sources
+    asyncio.run(scrape_all_sources())            # Scrape all sources
